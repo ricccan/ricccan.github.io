@@ -4,9 +4,84 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Homework 2</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f5f7fa;
+      color: #333;
+      line-height: 1.6;
+      margin: 40px auto;
+      max-width: 900px;
+      padding: 20px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+      background: #fff;
+      border-radius: 12px;
+    }
+
+    h1, h2, h3 {
+      color: #2c3e50;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 2.2em;
+      color: #1a5276;
+    }
+
+    h2 {
+      border-bottom: 2px solid #3498db;
+      padding-bottom: 6px;
+      margin-top: 40px;
+    }
+
+    p {
+      text-align: justify;
+    }
+
+    ul {
+      background: #ecf5fc;
+      padding: 15px 25px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+
+    li {
+      margin-bottom: 10px;
+    }
+
+    img {
+      display: block;
+      margin: 15px auto;
+      max-width: 90%;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      transition: transform 0.2s ease-in-out;
+    }
+
+    img:hover {
+      transform: scale(1.03);
+    }
+
+    /* Evidenziazione del codice SQL */
+    code {
+      background-color: #f4f4f4;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-family: "Courier New", monospace;
+      color: #c0392b;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 50px;
+      font-size: 0.9em;
+      color: #777;
+    }
+  </style>
 </head>
 <body>
-  <h1>Homework 2:</h1>
+  <h1>Homework 2</h1>
 
   <h2>What is a Dataset?</h2>
 
@@ -27,9 +102,9 @@
   <p>A dataset could include numbers, text, images, audio recordings or even basic descriptions of objects. A dataset can be organized in various forms including tables and files. A few examples of datasets include:</p>
 
   <ul>
-    <li>A dataset that includes a listing of all real estate sales in a specific geographic area during a designated time period</li>
-    <li>A dataset that contains information on all the known meteorite landings</li>
-    <li>A dataset on regional air quality in a specific area during a designated time period</li>
+    <li>A dataset that includes a listing of all real estate sales in a specific geographic area during a designated time period.</li>
+    <li>A dataset that contains information on all the known meteorite landings.</li>
+    <li>A dataset on regional air quality in a specific area during a designated time period.</li>
     <li>A dataset that includes the attendance rate for public school students pre-K-12 by student group and by district during the 2021–2022 school year.</li>
   </ul>
 
@@ -49,17 +124,21 @@
 
   <!-- Nuove sezioni -->
   <h2>DBMS</h2>
-  <p>The dbms has the following attributes: A,B,K,L. A is the primary key and they all are Integer</p>
-  <img src="Homework2DB.PNG" alt="Spazio per immagine 1" width="400" />
+  <p>The DBMS has the following attributes: <strong>A, B, K, L</strong>. A is the primary key and they all are integers.</p>
+  <img src="Homework2DB.PNG" alt="Database schema" />
 
-  <h2>Univariate distribution</h2>
-  <p>The univariate distribution k <= 3 can be obtained by using the function count and the group by (k). </p>
-  <img src="Homework2queymonovalente.PNG" alt="Spazio per immagine 2" width="400" />
-  <img src="Homework2queymonovalenterisultati.PNG" alt="Spazio per immagine 2" width="400" />
+  <h2>Univariate Distribution</h2>
+  <p>The univariate distribution where <code>K &lt;= 3</code> can be obtained by using the function <code>COUNT()</code> together with <code>GROUP BY (K)</code>.</p>
+  <img src="Homework2queymonovalente.PNG" alt="Univariate query" />
+  <img src="Homework2queymonovalenterisultati.PNG" alt="Univariate query results" />
 
-  <h2>bivariant distribution </h2>
-  <p>The bivariant distribution k <= 3 and B > 5 can be obtained by using the function count and the group by (k,B). </p>
-  <img src="homework2QueryBivalente.PNG" alt="Spazio per immagine 3" width="400" />
-  <img src="Homework2BivalenteResult.PNG" alt="Spazio per immagine 3" width="400" />
+  <h2>Bivariate Distribution</h2>
+  <p>The bivariate distribution where <code>K &lt;= 3</code> and <code>B &gt; 5</code> can be obtained by using <code>COUNT()</code> and <code>GROUP BY (K, B)</code>.</p>
+  <img src="homework2QueryBivalente.PNG" alt="Bivariate query" />
+  <img src="Homework2BivalenteResult.PNG" alt="Bivariate query results" />
+
+  <footer>
+    <p>Homework 2 – Data Management &amp; Analysis</p>
+  </footer>
 </body>
 </html>
