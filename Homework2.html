@@ -137,6 +137,340 @@
   <img src="homework2QueryBivalente.PNG" alt="Bivariate query" />
   <img src="Homework2BivalenteResult.PNG" alt="Bivariate query results" />
 
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Automatic Caesar Cipher Decoder</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Layout generale */
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 24px auto;
+      max-width: 980px;
+      line-height: 1.6;
+      background-color: #f7f9fb;
+      color: #333;
+      padding: 18px;
+    }
+
+    h1 { text-align: center; margin-bottom: 8px; color: #1a5276; }
+    p.lead { text-align: center; color: #555; margin-top: 0; margin-bottom: 18px; }
+
+    /* Textarea & controls */
+    .panel {
+      background: #fff;
+      padding: 14px;
+      border-radius: 10px;
+      box-shadow: 0 6px 18px rgba(20,30,50,0.06);
+      margin-bottom: 14px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 160px;
+      font-size: 1rem;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      resize: vertical;
+      line-height: 1.4;
+      overflow: auto;
+      white-space: pre-wrap; /* wrap long text */
+      word-break: break-word;
+    }
+
+    .controls {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin: 4px 0;
+      padding: 8px 14px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+
+    button:hover { background-color: #2c82c9; }
+
+    label { display: flex; align-items: center; gap: 8px; color: #333; }
+
+    input[type="number"] {
+      width: 72px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+      text-align: center;
+      background: #fff;
+    }
+
+    /* Result areas */
+    #cipherResult, #decodeInfo {
+      margin-top: 12px;
+      padding: 12px;
+      background-color: #ecf5fc;
+      border-radius: 8px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 260px;
+      overflow: auto; /* evita overflow orizzontale */
+      border: 1px solid rgba(52,152,219,0.15);
+    }
+
+    /* Canvas */
+    .chart-wrapper {
+      margin-top: 18px;
+      background-color: white;
+      border-radius: 10px;
+      padding: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.04);
+    }
+
+    canvas { width: 100% !important; height: 320px !important; display: block; }
+
+    /* Small helpers */
+    .manual-controls {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-left: 6px;
+    }
+
+    .small {
+      font-size: 0.9rem;
+      color: #666;
+    }
+
+    @media (max-width: 640px) {
+      textarea { height: 140px; }
+      canvas { height: 240px !important; }
+      .controls { gap: 6px; }
+      button { padding: 8px 10px; font-size: 0.9rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Automatic Caesar Cipher Decoder</h1>
+  <p class="lead">Insert English text. You can calculate distribution, encrypt, auto-decode (frequency analysis), or manually decode any shift.</p>
+
+  <div class="panel">
+    <textarea id="inputText" placeholder="Type or paste your text here..."></textarea>
+
+    <div class="controls">
+      <button onclick="calculateDistribution()">Calculate Distribution</button>
+
+      <label>
+        Shift:
+        <input type="number" id="shiftValue" value="3" min="0" max="25" />
+      </label>
+
+      <button onclick="encryptCaesar()">Encrypt with Caesar Cipher</button>
+      <button onclick="autoDecode()">Auto Decode (frequency)</button>
+
+      <!-- Manual decode controls -->
+      <div class="manual-controls small" title="Manual decode controls">
+        <button onclick="changeManualShift(-1)" style="background:#2ecc71">−</button>
+        <button onclick="changeManualShift(1)" style="background:#f39c12">+</button>
+        <button onclick="manualDecode()">Manual Decode</button>
+        <span class="small" style="margin-left:8px;">(use +/- to step shift)</span>
+      </div>
+    </div>
+
+    <div id="cipherResult" aria-live="polite"></div>
+    <div id="decodeInfo" aria-live="polite"></div>
+  </div>
+
+  <div class="chart-wrapper">
+    <canvas id="letterChart"></canvas>
+  </div>
+
+  <script>
+    let chartInstance = null;
+
+    // English letter frequencies (percent)
+    const englishFrequencies = {
+      a: 8.167, b: 1.492, c: 2.782, d: 4.253, e: 12.702,
+      f: 2.228, g: 2.015, h: 6.094, i: 6.966, j: 0.153,
+      k: 0.772, l: 4.025, m: 2.406, n: 6.749, o: 7.507,
+      p: 1.929, q: 0.095, r: 5.987, s: 6.327, t: 9.056,
+      u: 2.758, v: 0.978, w: 2.360, x: 0.150, y: 1.974, z: 0.074
+    };
+
+    // === utility functions ===
+    function caesarShift(text, shift) {
+      let result = "";
+      for (let char of text) {
+        if (/[a-z]/.test(char)) {
+          const code = ((char.charCodeAt(0) - 97 + shift + 26) % 26) + 97;
+          result += String.fromCharCode(code);
+        } else if (/[A-Z]/.test(char)) {
+          const code = ((char.charCodeAt(0) - 65 + shift + 26) % 26) + 65;
+          result += String.fromCharCode(code);
+        } else {
+          result += char;
+        }
+      }
+      return result;
+    }
+
+    function getLetterFrequencies(text) {
+      const freq = {};
+      let total = 0;
+      for (let i = 97; i <= 122; i++) freq[String.fromCharCode(i)] = 0;
+      for (let ch of text.toLowerCase()) {
+        if (/[a-z]/.test(ch)) { freq[ch]++; total++; }
+      }
+      for (let k in freq) {
+        freq[k] = total > 0 ? (freq[k] / total) * 100 : 0;
+      }
+      return freq;
+    }
+
+    function renderChart(frequencies, titleText) {
+      const labels = Object.keys(frequencies).map(l => l.toUpperCase());
+      const values = Object.values(frequencies);
+      const ctx = document.getElementById("letterChart").getContext("2d");
+      if (chartInstance) chartInstance.destroy();
+      chartInstance = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [{
+            label: "Letter Frequency (%)",
+            data: values,
+            backgroundColor: "#3498db",
+            borderRadius: 6
+          }]
+        },
+        options: {
+          plugins: {
+            title: { display: true, text: titleText, font: { size: 16 } },
+            legend: { display: false }
+          },
+          scales: {
+            x: { grid: { display: false }, title: { display: true, text: "Letters" } },
+            y: { beginAtZero: true, title: { display: true, text: "Frequency (%)" } }
+          },
+          responsive: true,
+          maintainAspectRatio: false
+        }
+      });
+    }
+
+    // === Main actions ===
+    function calculateDistribution() {
+      const text = document.getElementById("inputText").value || "";
+      const freq = getLetterFrequencies(text);
+      renderChart(freq, "Letter Distribution (Original Text)");
+      clearResultBoxes();
+    }
+
+    function encryptCaesar() {
+      const text = document.getElementById("inputText").value || "";
+      const shift = (parseInt(document.getElementById("shiftValue").value) || 0) % 26;
+      const encrypted = caesarShift(text, shift);
+      document.getElementById("cipherResult").innerHTML =
+        `<strong>Encrypted Text (shift = ${shift}):</strong>\n\n` + escapeHtml(encrypted);
+      const freq = getLetterFrequencies(encrypted);
+      renderChart(freq, `Letter Distribution (After Caesar, shift=${shift})`);
+      document.getElementById("decodeInfo").innerHTML = "";
+    }
+
+    // Auto-decode via frequency analysis (existing)
+    function autoDecode() {
+      const text = document.getElementById("inputText").value || "";
+      let bestShift = 0;
+      let minDistance = Infinity;
+      let bestDecryption = "";
+
+      for (let shift = 0; shift < 26; shift++) {
+        const decoded = caesarShift(text, -shift);
+        const freq = getLetterFrequencies(decoded);
+        let distance = 0;
+        for (let letter in englishFrequencies) {
+          const diff = freq[letter] - englishFrequencies[letter];
+          distance += diff * diff;
+        }
+        if (distance < minDistance) {
+          minDistance = distance;
+          bestShift = shift;
+          bestDecryption = decoded;
+        }
+      }
+
+      document.getElementById("decodeInfo").innerHTML =
+        `<strong>Automatic Decryption (frequency analysis)</strong>\n\nDetected shift: ${bestShift}\n\nDecoded text:\n\n` + escapeHtml(bestDecryption);
+
+      const freq = getLetterFrequencies(bestDecryption);
+      renderChart(freq, `Letter Distribution (Decoded, shift = ${bestShift})`);
+      document.getElementById("cipherResult").innerHTML = "";
+    }
+
+    // === Manual decode functionality ===
+    function manualDecode() {
+      const text = document.getElementById("inputText").value || "";
+      let shift = parseInt(document.getElementById("shiftValue").value);
+      if (isNaN(shift)) shift = 0;
+      shift = ((shift % 26) + 26) % 26; // normalize 0..25
+      const decoded = caesarShift(text, -shift);
+      document.getElementById("decodeInfo").innerHTML =
+        `<strong>Manual Decode (shift = ${shift})</strong>\n\n` + escapeHtml(decoded);
+      const freq = getLetterFrequencies(decoded);
+      renderChart(freq, `Letter Distribution (Manual decode, shift = ${shift})`);
+      document.getElementById("cipherResult").innerHTML = "";
+    }
+
+    // step the shift input by +/-1
+    function changeManualShift(delta) {
+      const input = document.getElementById("shiftValue");
+      let val = parseInt(input.value) || 0;
+      val = (val + delta) % 26;
+      if (val < 0) val += 26;
+      input.value = val;
+    }
+
+    // helper to clear result areas
+    function clearResultBoxes() {
+      document.getElementById("cipherResult").innerHTML = "";
+      document.getElementById("decodeInfo").innerHTML = "";
+    }
+
+    // escape for safe display
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    // init: empty chart
+    (function initEmpty() {
+      const empty = {};
+      for (let i = 97; i <= 122; i++) empty[String.fromCharCode(i)] = 0;
+      renderChart(empty, "Ready — insert text and choose an action");
+    })();
+
+  </script>
+
+</body>
+
+
   <footer>
     <p>Homework 2 – Data Management &amp; Analysis</p>
   </footer>
