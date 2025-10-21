@@ -3,348 +3,150 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>LLN Simulation — Trajectories & Histogram</title>
+<title>LLN Simulation (Compact)</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial; margin: 18px; background:#f3f6fa; color:#202020; }
-  h1 { text-align:center; color:#1f618d; margin-bottom:6px; }
-  p.lead { text-align:center; color:#556; margin-top:0; margin-bottom:18px; }
-  .container { display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
-  .panel { background:#fff; border-radius:10px; padding:12px; box-shadow:0 6px 18px rgba(20,30,50,0.06); }
-  .left { flex:1 1 640px; min-width:320px; }
-  .right { width:360px; min-width:300px; }
-  canvas { background:#fff; border-radius:8px; display:block; }
-  .controls { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:8px; }
-  label { font-size:0.95rem; color:#333; display:flex; gap:8px; align-items:center; }
-  input[type=range] { width:240px; }
-  input[type=number] { width:80px; padding:6px; border-radius:6px; border:1px solid #ccc; }
-  button { background:#1f78b4; color:white; border:0; padding:8px 12px; border-radius:8px; cursor:pointer; }
-  button.secondary { background:#22a65b; }
-  small.hint { color:#666; display:block; margin-top:6px; }
-  .meta { margin-top:8px; font-size:0.95rem; color:#333; }
-  .center { text-align:center; }
-  @media (max-width:980px) {
-    .container { flex-direction:column; }
-    .right { width:100%; }
+  body {
+    font-family: system-ui, sans-serif;
+    margin: 10px;
+    background:#f4f6f9;
+    color:#222;
   }
+  h1 { text-align:center; font-size:1.4rem; margin-bottom:6px; color:#1f618d; }
+  .controls {
+    display:flex; flex-wrap:wrap; gap:6px; align-items:center;
+    background:#fff; padding:8px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.08);
+    margin-bottom:8px;
+  }
+  label { font-size:0.9rem; }
+  input[type=number], input[type=range] {
+    font-size:0.9rem; padding:3px 5px; border-radius:6px; border:1px solid #ccc;
+  }
+  button {
+    background:#1f78b4; color:#fff; border:none; border-radius:6px;
+    padding:6px 10px; cursor:pointer; font-size:0.9rem;
+  }
+  button.secondary { background:#27ae60; }
+  .container { display:flex; gap:8px; flex-wrap:wrap; }
+  .panel {
+    background:#fff; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.08);
+    padding:8px; flex:1;
+  }
+  canvas { background:#fff; border-radius:6px; }
+  .meta { font-size:0.8rem; text-align:center; color:#555; margin-top:4px; }
+  #mainChart { height:220px; }
+  #histChart { height:220px; }
 </style>
 </head>
 <body>
-  <h1>Law of Large Numbers — Simulation</h1>
-  <p class="lead">Multiple simulated trajectories of the sample relative frequency <em>f(n)</em> and a histogram of <em>f(n)</em> across trajectories at the selected n. Watch how the histogram concentrates around p as n grows.</p>
+  <h1>Law of Large Numbers — Compact Simulation</h1>
 
-  <div class="panel controls" style="margin-bottom:12px;">
-    <label>p (success prob):
-      <input id="pInput" type="number" min="0" max="1" step="0.01" value="0.3" />
-    </label>
-
-    <label>m (trajectories):
-      <input id="mInput" type="number" min="1" max="1000" step="1" value="200" />
-    </label>
-
-    <label>N (max trials):
-      <input id="nInput" type="number" min="10" max="10000" step="10" value="1000" />
-    </label>
-
-    <button id="generateBtn" class="secondary">Generate simulation</button>
-
-    <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
-      <button id="playBtn">Play ▶</button>
-      <button id="stopBtn">Stop ⏹</button>
-    </div>
+  <div class="controls">
+    <label>p:<input id="pInput" type="number" value="0.3" min="0" max="1" step="0.01" /></label>
+    <label>m:<input id="mInput" type="number" value="100" min="1" max="500" /></label>
+    <label>N:<input id="nInput" type="number" value="500" min="10" max="5000" /></label>
+    <button class="secondary" id="generateBtn">Generate</button>
+    <label style="margin-left:auto;">n:<input type="range" id="nRange" min="1" max="500" value="1" style="width:140px;"></label>
+    <span>n=<span id="nLabel">1</span></span>
+    <button id="playBtn">▶</button>
+    <button id="stopBtn">⏹</button>
   </div>
 
   <div class="container">
-    <div class="panel left">
-      <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
-        <label style="margin-bottom:0;">n:
-          <input id="nRange" type="range" min="1" max="1000" value="1" step="1" />
-        </label>
-        <div style="min-width:72px; font-weight:600;">n = <span id="nLabel">1</span></div>
-        <div style="margin-left:auto; text-align:right;">
-          <div>Empirical mean at current n: <span id="empMean">—</span></div>
-          <div>Theoretical p: <strong id="pLabel">0.3</strong></div>
-        </div>
-      </div>
-
-      <canvas id="mainChart" height="360"></canvas>
-      <div class="meta center">Each light line = a trajectory of f(n). Bold darker line = empirical mean over m trajectories. Vertical dashed line = p.</div>
+    <div class="panel" style="flex:1 1 60%;">
+      <canvas id="mainChart"></canvas>
+      <div class="meta">Trajectories of f(n) — dashed line = p</div>
     </div>
-
-    <div class="panel right">
-      <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-        <div style="flex:1;">
-          <strong>Histogram of f(n) across m trajectories (current n)</strong>
-        </div>
-        <div style="text-align:right;">
-          <div>Bins: <input id="binsInput" type="number" value="20" min="5" max="100" style="width:64px;padding:6px;border-radius:6px;border:1px solid #ccc;" /></div>
-        </div>
-      </div>
-      <canvas id="histChart" height="360"></canvas>
-      <div class="meta">
-        <div>As <em>n</em> increases the histogram clusters near p. The theoretical variance of f(n) is p(1−p)/n.</div>
-        <div style="margin-top:6px;">Theoretical var: <span id="theoVar">—</span></div>
-      </div>
+    <div class="panel" style="flex:1 1 35%;">
+      <canvas id="histChart"></canvas>
+      <div class="meta">Histogram of f(n) at selected n</div>
     </div>
   </div>
 
 <script>
-/* LLN simulation script
-   - Precomputes m trajectories of length N (Bernoulli(p))
-   - fValues[i][n] = relative frequency for trajectory i at sample size n (1-indexed n)
-   - Main chart plots all m trajectories (thin lines) and mean trajectory (bold)
-   - Histogram shows distribution of f(n) across i=1..m at the selected n
-*/
+let mainChart=null, histChart=null;
+let fValues=[], m=100, N=500, p=0.3, playing=false, timer=null;
 
-// Chart instances
-let mainChart = null;
-let histChart = null;
+const pInput=document.getElementById('pInput'),
+      mInput=document.getElementById('mInput'),
+      nInput=document.getElementById('nInput'),
+      nRange=document.getElementById('nRange'),
+      nLabel=document.getElementById('nLabel');
 
-// Simulation data
-let fValues = []; // array of length m; each element is Float64Array of length N+1 (index 0 unused)
-let m = 200;
-let N = 1000;
-let p = 0.3;
-let playing = false;
-let playTimer = null;
+function bernoulli(p){return Math.random()<p?1:0;}
 
-const generateBtn = document.getElementById('generateBtn');
-const playBtn = document.getElementById('playBtn');
-const stopBtn = document.getElementById('stopBtn');
-const nRange = document.getElementById('nRange');
-const nLabel = document.getElementById('nLabel');
-const empMeanLabel = document.getElementById('empMean');
-const pInput = document.getElementById('pInput');
-const pLabel = document.getElementById('pLabel');
-const mInput = document.getElementById('mInput');
-const nInput = document.getElementById('nInput');
-const binsInput = document.getElementById('binsInput');
-const theoVarLabel = document.getElementById('theoVar');
-
-// random Bernoulli generator
-function bernoulli(p) {
-  return Math.random() < p ? 1 : 0;
+function buildSim(){
+  p=parseFloat(pInput.value);
+  m=parseInt(mInput.value);
+  N=parseInt(nInput.value);
+  fValues=new Array(m);
+  for(let i=0;i<m;i++){
+    let arr=new Float64Array(N+1), sum=0;
+    for(let n=1;n<=N;n++){ sum+=bernoulli(p); arr[n]=sum/n; }
+    fValues[i]=arr;
+  }
+  nRange.max=N; nRange.value=1; updateCharts(1);
 }
 
-// build simulation
-function buildSimulation() {
-  p = parseFloat(pInput.value);
-  m = Math.max(1, parseInt(mInput.value,10));
-  N = Math.max(1, parseInt(nInput.value,10));
-  // allocate
-  fValues = new Array(m);
-  for (let i=0;i<m;i++) {
-    // we'll use Float64Array length N+1; fValues[i][n] is valid for n=1..N
-    const arr = new Float64Array(N+1);
-    let cum = 0;
-    for (let n=1;n<=N;n++) {
-      cum += bernoulli(p);
-      arr[n] = cum / n;
-    }
-    fValues[i] = arr;
-  }
-
-  // update slider
-  nRange.max = N;
-  nRange.value = 1;
-  nLabel.textContent = '1';
-  pLabel.textContent = p.toFixed(3);
-  updateTheoVar(1);
-  renderMainChart();
-  updateHistogram(1);
+function updateCharts(n){
+  n=parseInt(n); nLabel.textContent=n;
+  renderMain(n); renderHist(n);
 }
 
-// render main chart: plot trajectories
-function renderMainChart() {
-  const ctx = document.getElementById('mainChart').getContext('2d');
-  if (mainChart) mainChart.destroy();
-
-  // build datasets: a dataset per trajectory (thin, translucent)
-  const labels = Array.from({length:N}, (_,i)=>i+1);
-  const datasets = [];
-  // sample down if N too large to avoid heavy rendering: show all but reduce line width
-  for (let i=0;i<m;i++) {
-    datasets.push({
-      label: `traj ${i+1}`,
-      data: Array.from({length:N}, (_,n)=>fValues[i][n+1]),
-      borderColor: 'rgba(30,140,200,0.06)',
-      borderWidth: 1,
-      pointRadius: 0,
-      tension: 0.15,
-      fill: false,
-      spanGaps: true,
-    });
+function renderMain(n){
+  const ctx=document.getElementById('mainChart').getContext('2d');
+  if(mainChart) mainChart.destroy();
+  const labels=Array.from({length:N},(_,i)=>i+1);
+  const datasets=[];
+  for(let i=0;i<Math.min(m,150);i++){
+    datasets.push({data:Array.from({length:N},(_,k)=>fValues[i][k+1]),
+      borderColor:'rgba(0,123,255,0.05)', borderWidth:1, pointRadius:0, fill:false});
   }
-
-  // add mean trajectory
-  const meanData = new Array(N);
-  for (let n=1;n<=N;n++) {
-    let s = 0;
-    for (let i=0;i<m;i++) s += fValues[i][n];
-    meanData[n-1] = s / m;
-  }
-  datasets.push({
-    label: 'Empirical mean over m',
-    data: meanData,
-    borderColor: '#e74c3c',
-    borderWidth: 2.5,
-    pointRadius: 0,
-    tension: 0.2,
-    fill: false
+  const meanData=Array.from({length:N},(_,k)=>{
+    let s=0;for(let i=0;i<m;i++) s+=fValues[i][k+1];return s/m;
   });
-
-  // vertical p as plugin annotation (drawn via plugin)
-  mainChart = new Chart(ctx, {
-    type: 'line',
-    data: { labels: labels, datasets: datasets },
-    options: {
-      animation: false,
-      interaction: { intersect:false, mode: 'index' },
-      scales: {
-        x: { title: { display:true, text: 'n (trial index)' } },
-        y: { title: { display:true, text: 'f(n) = relative frequency' }, min:0, max:1 }
-      },
-      plugins: {
-        legend: { display: false },
-        title: { display: true, text: `m = ${m} trajectories, N = ${N}, p = ${p}` }
-      }
-    }
-  });
-
-  // draw vertical line for p and label using custom plugin overlay
-  Chart.register({
-    id: 'p-line',
-    afterDraw: chart => {
-      const {ctx, chartArea:area, scales} = chart;
-      // draw horizontal dashed line at y = p
-      const y = scales.y.getPixelForValue(p);
-      ctx.save();
-      ctx.setLineDash([6,4]);
-      ctx.strokeStyle = '#2c3e50';
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.moveTo(area.left, y);
-      ctx.lineTo(area.right, y);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle = '#2c3e50';
-      ctx.font = '12px sans-serif';
-      ctx.fillText(`p = ${p.toFixed(3)}`, area.right - 80, y - 6);
-      ctx.restore();
-    }
-  });
+  datasets.push({data:meanData,borderColor:'#e74c3c',borderWidth:2,pointRadius:0});
+  mainChart=new Chart(ctx,{type:'line',data:{labels,datasets},
+    options:{
+      animation:false,plugins:{legend:{display:false}},
+      scales:{y:{min:0,max:1}},
+      elements:{line:{tension:0.1}}
+    }});
+  // dashed p line
+  const y=mainChart.scales.y.getPixelForValue(p);
+  const {ctx:ctx2, chartArea:a}=mainChart;
+  ctx2.save();ctx2.setLineDash([4,3]);ctx2.strokeStyle='#222';ctx2.beginPath();
+  ctx2.moveTo(a.left,y);ctx2.lineTo(a.right,y);ctx2.stroke();ctx2.restore();
 }
 
-// update histogram at given n (1..N)
-function updateHistogram(n) {
-  n = Math.max(1, Math.min(N, n));
-  nLabel.textContent = n;
-  const bins = Math.max(5, Math.min(200, parseInt(binsInput.value,10)||20));
-  // collect f(n) values
-  const vals = new Array(m);
-  let s=0;
-  for (let i=0;i<m;i++) { vals[i] = fValues[i][n]; s += vals[i]; }
-  const empMean = s / m;
-  empMeanLabel.textContent = empMean.toFixed(4);
-  updateTheoVar(n);
-
-  // compute histogram bins [0,1]
-  const counts = new Array(bins).fill(0);
-  for (let v of vals) {
-    // clamp to [0,1]
-    let idx = Math.floor(v * bins);
-    if (idx === bins) idx = bins-1;
-    counts[idx]++;
-  }
-  const binLabels = new Array(bins);
-  const binCenters = new Array(bins);
-  for (let b=0;b<bins;b++) {
-    const left = b / bins;
-    const right = (b+1) / bins;
-    binLabels[b] = `${(left).toFixed(2)}–${(right).toFixed(2)}`;
-    binCenters[b] = (left+right)/2;
-  }
-
-  // render or update histChart
-  const ctx = document.getElementById('histChart').getContext('2d');
-  if (histChart) histChart.destroy();
-  histChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: binLabels,
-      datasets: [{
-        label: 'Count',
-        data: counts,
-        backgroundColor: 'rgba(46, 134, 193, 0.85)',
-        borderRadius: 4
-      }]
-    },
-    options: {
-      animation: false,
-      indexAxis: 'y', // vertical histogram placed to the right by rotating bars horizontally (bars extend left-right)
-      scales: {
-        x: { title: { display: true, text: 'Count' } },
-        y: { display: true, title: { display:false } }
-      },
-      plugins: {
-        legend: { display: false },
-        title: { display: true, text: `Distribution of f(n) across m trajectories at n = ${n}` }
-      }
-    }
+function renderHist(n){
+  const ctx=document.getElementById('histChart').getContext('2d');
+  if(histChart) histChart.destroy();
+  const vals=fValues.map(v=>v[n]);
+  const bins=20, counts=new Array(bins).fill(0);
+  vals.forEach(v=>{
+    let i=Math.min(bins-1,Math.floor(v*bins));counts[i]++;
   });
-
-  // also draw vertical line at bin that contains p using overlay on histChart
-  // compute bin index of p and annotate
-  const binIndexForP = Math.min(bins-1, Math.floor(p * bins));
-  // place small overlay text below chart element
-  // show empirical mean and theoretical var/p(1-p)/n
-  const theoVar = p*(1-p)/n;
-  theoVarLabel.textContent = theoVar.toExponential(3);
+  const labels=Array.from({length:bins},(_,i)=>((i+0.5)/bins).toFixed(2));
+  histChart=new Chart(ctx,{type:'bar',
+    data:{labels,datasets:[{data:counts,backgroundColor:'rgba(46,134,193,0.8)'}]},
+    options:{animation:false,indexAxis:'y',plugins:{legend:{display:false}},
+      scales:{x:{display:false},y:{display:false}}}});
 }
 
-// update theoretical variance label
-function updateTheoVar(n) {
-  const varv = p*(1-p)/n;
-  document.getElementById('theoVar').textContent = varv.toExponential(3);
-}
+document.getElementById('generateBtn').onclick=buildSim;
+nRange.oninput=e=>updateCharts(e.target.value);
+document.getElementById('playBtn').onclick=()=>{
+  if(playing) return; playing=true;
+  let n=parseInt(nRange.value);
+  timer=setInterval(()=>{
+    n++; if(n>N){clearInterval(timer);playing=false;return;}
+    nRange.value=n; updateCharts(n);
+  },80);
+};
+document.getElementById('stopBtn').onclick=()=>{playing=false;clearInterval(timer);};
 
-// slider/controls events
-nRange.addEventListener('input', (e) => {
-  const n = parseInt(e.target.value,10);
-  updateHistogram(n);
-});
-
-generateBtn.addEventListener('click', () => {
-  buildSimulation();
-});
-
-binsInput.addEventListener('change', ()=> {
-  const n = parseInt(nRange.value,10) || 1;
-  updateHistogram(n);
-});
-
-playBtn.addEventListener('click', () => {
-  if (playing) return;
-  playing = true;
-  let n = parseInt(nRange.value,10) || 1;
-  playTimer = setInterval(() => {
-    n++;
-    if (n > N) { clearInterval(playTimer); playing = false; return; }
-    nRange.value = n;
-    updateHistogram(n);
-  }, 80);
-});
-
-stopBtn.addEventListener('click', () => {
-  if (playTimer) clearInterval(playTimer);
-  playing = false;
-});
-
-// initial build
-window.addEventListener('load', () => {
-  buildSimulation();
-});
-
+window.onload=buildSim;
 </script>
 </body>
 </html>
