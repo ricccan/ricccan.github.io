@@ -1,437 +1,271 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Toy RSA + Reference-Distribution Decoder</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-  body { font-family: Arial, sans-serif; max-width: 1000px; margin: 24px auto; padding: 16px; color:#222; background:#f6f8fb; }
-  h1 { color:#1a5276; text-align:center; }
-  .panel { background:#fff; border-radius:10px; padding:14px; box-shadow:0 6px 18px rgba(0,0,0,0.05); margin-bottom:14px; }
-  textarea { width:100%; min-height:120px; padding:10px; border-radius:8px; border:1px solid #ccc; resize:vertical; }
-  input[type="number"], input[type="text"] { padding:6px 8px; border-radius:6px; border:1px solid #ccc; }
-  button { padding:8px 12px; border-radius:8px; border:0; background:#3498db; color:#fff; cursor:pointer; margin-right:6px; }
-  button.secondary { background:#2ecc71; }
-  .small { font-size:0.9rem; color:#666; margin-top:8px; }
-  pre { white-space: pre-wrap; word-break:break-word; max-height:300px; overflow:auto; background:#fcfeff; padding:10px; border-radius:6px; }
-  .grid { display:flex; gap:12px; flex-wrap:wrap; }
-  .col { flex:1 1 300px; min-width:280px; }
-  canvas { width:100% !important; height:320px !important; background:#fff; border-radius:8px; padding:6px; }
-  label { display:flex; gap:8px; align-items:center; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RSA Encryption & Frequency-Based Decoding</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px auto;
+      max-width: 900px;
+      background-color: #f7f9fb;
+      color: #333;
+      line-height: 1.6;
+    }
+    textarea {
+      width: 100%;
+      height: 120px;
+      font-size: 1em;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      resize: none;
+      box-sizing: border-box;
+    }
+    button {
+      margin: 8px 4px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      background-color: #3498db;
+      color: white;
+      font-size: 1em;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #2c82c9;
+    }
+    input[type="number"] {
+      width: 80px;
+      padding: 6px;
+      margin-left: 8px;
+    }
+    #cipherOut, #plainOut, #decodeOut {
+      background-color: #eef4fb;
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: 10px;
+      white-space: pre-wrap;
+      overflow-wrap: break-word;
+      word-break: break-all;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    #keyInfo {
+      background-color: #e3f7e3;
+      padding: 8px;
+      border-radius: 6px;
+      margin: 10px 0;
+      font-family: monospace;
+    }
+    canvas {
+      background: white;
+      border-radius: 8px;
+      margin-top: 20px;
+      box-shadow: 0 0 6px rgba(0,0,0,0.1);
+      padding: 10px;
+    }
+  </style>
 </head>
 <body>
-  <h1>Toy RSA + Reference-Distribution Decoder</h1>
+  <h1>RSA Encryption & Frequency-based Decoder 🔐</h1>
 
-  <div class="panel">
-    <h2>1) Key generation (toy)</h2>
-    <div class="grid">
-      <div class="col">
-        <label>Prime p:
-          <input type="number" id="pInput" value="61" min="3" />
-        </label>
-      </div>
-      <div class="col">
-        <label>Prime q:
-          <input type="number" id="qInput" value="53" min="3" />
-        </label>
-      </div>
-      <div class="col">
-        <label>Public exponent e:
-          <input type="number" id="eInput" value="17" min="3" />
-        </label>
-      </div>
-    </div>
+  <h3>Step 1: Generate RSA Keys</h3>
+  <button onclick="generateKeys()">Generate Keys</button>
+  <div id="keyInfo"></div>
 
-    <div style="margin-top:10px;">
-      <button onclick="generateKeys()">Generate Keys</button>
-      <button onclick="autoGeneratePrimes()">Auto small primes</button>
-    </div>
+  <h3>Step 2: Encrypt Text</h3>
+  <textarea id="plainText" placeholder="Enter text to encrypt..."></textarea>
+  <button onclick="encryptRSA()">Encrypt</button>
+  <pre id="cipherOut"></pre>
 
-    <div class="small">This is a toy generator. For real security use large primes and proper libraries.</div>
+  <h3>Step 3: Decrypt</h3>
+  <button onclick="decryptWithPrivate()">Decrypt (private key)</button>
+  <button onclick="attemptFactorAndDecode()">Attempt factor n → compute d → decrypt</button>
+  <label>Max trial: <input type="number" id="maxTrial" value="10000"></label>
+  <pre id="plainOut"></pre>
 
-    <div style="margin-top:10px;">
-      <pre id="keysOut">No keys yet.</pre>
-    </div>
-  </div>
+  <h3>Decoded Results / Analysis</h3>
+  <pre id="decodeOut"></pre>
+  <div id="scoreOut"></div>
 
-  <div class="panel">
-    <h2>2) Encrypt / Decrypt (with known keys)</h2>
-    <label>Plaintext (UTF-8):</label>
-    <textarea id="plainText">Hello RSA! This is a test message.</textarea>
+  <canvas id="freqChart"></canvas>
 
-    <div style="margin-top:8px;">
-      <button onclick="encryptText()">Encrypt (public key)</button>
-      <button onclick="decryptWithPrivate()">Decrypt (private key)</button>
-      <button onclick="clearOutputs()">Clear outputs</button>
-    </div>
+  <script>
+    // --- Utilities for BigInt math
+    function modPow(base, exp, mod) {
+      let result = 1n;
+      base %= mod;
+      while (exp > 0n) {
+        if (exp % 2n === 1n) result = (result * base) % mod;
+        exp /= 2n;
+        base = (base * base) % mod;
+      }
+      return result;
+    }
+    function egcd(a, b) {
+      if (b === 0n) return [a, 1n, 0n];
+      const [g, x1, y1] = egcd(b, a % b);
+      return [g, y1, x1 - (a / b) * y1];
+    }
+    function modInverse(a, m) {
+      const [g, x] = egcd(a, m);
+      return g !== 1n ? null : (x % m + m) % m;
+    }
 
-    <div style="margin-top:10px;">
-      <label>Ciphertext (base64-like numeric):</label>
-      <pre id="cipherOut">—</pre>
-    </div>
+    // --- RSA
+    let RSA = {};
+    let lastCipher = null;
+    let lastCandidatePlain = "";
+    let lastCandidateFreq = {};
+    const englishRef = {
+      a:8.167,b:1.492,c:2.782,d:4.253,e:12.702,f:2.228,g:2.015,h:6.094,i:6.966,
+      j:0.153,k:0.772,l:4.025,m:2.406,n:6.749,o:7.507,p:1.929,q:0.095,r:5.987,
+      s:6.327,t:9.056,u:2.758,v:0.978,w:2.360,x:0.150,y:1.974,z:0.074
+    };
 
-    <div style="margin-top:10px;">
-      <label>Decrypted (with known private d):</label>
-      <pre id="plainOut">—</pre>
-    </div>
-  </div>
+    function generateKeys() {
+      const primes = [101,103,107,109,113,127,131,137,139,149];
+      const p = BigInt(primes[Math.floor(Math.random()*primes.length)]);
+      let q;
+      do { q = BigInt(primes[Math.floor(Math.random()*primes.length)]); } while (q===p);
+      const n = p*q;
+      const phi = (p-1n)*(q-1n);
+      let e = 65537n;
+      if (phi % e === 0n) e = 17n;
+      const d = modInverse(e, phi);
+      RSA = {p,q,n,e,d};
+      document.getElementById('keyInfo').textContent =
+        `p=${p}, q=${q}, n=${n}, phi=${phi}, e=${e}, d=${d}`;
+    }
 
-  <div class="panel">
-    <h2>3) Attempt decoding without private key (use reference distribution)</h2>
+    function textToCodePoints(txt){return Array.from(txt).map(c=>c.charCodeAt(0));}
+    function codePointsToText(arr){return arr.map(c=>String.fromCharCode(c)).join('');}
 
-    <div class="grid">
-      <div class="col">
-        <button onclick="attemptFactorAndDecode()" class="">Attempt factor n → compute d → decrypt</button>
-        <button onclick="bruteForceCandidateDs()" class="secondary">Brute-force small d candidates</button>
-        <div class="small">If n is small (toy RSA) factoring will be attempted. Then the plaintext candidate is compared to English reference frequencies and scored (MSE). Lower score = closer to English.</div>
+    function encryptRSA() {
+      if (!RSA.n) { alert('Generate keys first'); return; }
+      const cps = textToCodePoints(document.getElementById('plainText').value);
+      const cipher = cps.map(cp => modPow(BigInt(cp), RSA.e, RSA.n));
+      lastCipher = cipher.map(c => c.toString());
+      document.getElementById('cipherOut').textContent = JSON.stringify(lastCipher);
+    }
 
-        <div style="margin-top:10px;">
-          <label>Max trial divisor for factoring:
-            <input type="number" id="maxTrial" value="10000" />
-          </label>
-        </div>
+    function decryptWithPrivate() {
+      if (!RSA.d || !RSA.n) { alert('Need private key (generate keys first)'); return; }
 
-        <div style="margin-top:10px;">
-          <button onclick="showEnglishReference()">Show English reference distribution</button>
-        </div>
-      </div>
+      // Se non c’è lastCipher, prova a leggerlo dal <pre>
+      if (!lastCipher) {
+        try {
+          const raw = document.getElementById('cipherOut').textContent.trim();
+          if (raw.startsWith('[')) lastCipher = JSON.parse(raw);
+          else throw new Error("Ciphertext non in formato JSON");
+        } catch (err) {
+          alert('No valid ciphertext found (encrypt first or paste a JSON array).');
+          return;
+        }
+      }
 
-      <div class="col">
-        <label>Reference (English) frequencies are used for scoring.</label>
-        <pre id="decodeOut">No attempt yet.</pre>
-      </div>
-    </div>
-
-    <div style="margin-top:12px;">
-      <label>Scoring details (lower = better):</label>
-      <pre id="scoreOut">—</pre>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h2>4) Frequency Chart (candidate / reference)</h2>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
-      <button onclick="renderCurrentFrequencies()">Render frequencies for latest candidate</button>
-      <div class="small">Chart shows candidate frequencies vs English ref.</div>
-    </div>
-    <div style="margin-top:10px;">
-      <canvas id="freqChart"></canvas>
-    </div>
-  </div>
-
-<script>
-/* ---------------------------
-   Helper arithmetic functions
-   --------------------------- */
-
-// compute a^b mod m (modular exponentiation)
-function modPow(a, b, m) {
-  if (m === 1) return 0;
-  let result = 1n;
-  let base = BigInt(a) % BigInt(m);
-  let exp = BigInt(b);
-  const mod = BigInt(m);
-  while (exp > 0n) {
-    if ((exp & 1n) === 1n) result = (result * base) % mod;
-    base = (base * base) % mod;
-    exp >>= 1n;
-  }
-  return result;
-}
-
-// extended gcd: returns [g, x, y] such that a*x + b*y = g = gcd(a,b)
-function egcd(a, b) {
-  a = BigInt(a); b = BigInt(b);
-  if (b === 0n) return [a, 1n, 0n];
-  let [g, x1, y1] = egcd(b, a % b);
-  let x = y1;
-  let y = x1 - (a / b) * y1;
-  return [g, x, y];
-}
-
-function modInverse(a, m) {
-  a = BigInt(a); m = BigInt(m);
-  const [g, x, y] = egcd(a, m);
-  if (g !== 1n) return null; // inverse does not exist
-  return ((x % m) + m) % m;
-}
-
-/* ---------------------------
-   Simple encoding scheme:
-   - Convert text to bytes (UTF-8) -> then to numbers in blocks
-   - For simplicity, we encode each character as its UTF-8 code and
-     encrypt each codepoint as a small integer block (toy).
-   Note: This is NOT optimal / secure; only educational.
-   --------------------------- */
-
-function textToCodePoints(str) {
-  // Use codePointAt to handle non-BMP chars properly
-  const out = [];
-  for (let i = 0; i < str.length; ) {
-    const cp = str.codePointAt(i);
-    out.push(cp);
-    i += (cp > 0xffff) ? 2 : 1;
-  }
-  return out;
-}
-
-function codePointsToText(arr) {
-  return arr.map(cp => String.fromCodePoint(cp)).join('');
-}
-
-/* ---------------------------
-   Key generation & storage
-   --------------------------- */
-
-let RSA = {
-  p: null, q: null, n: null, phi: null, e: null, d: null
-};
-
-function generateKeys() {
-  const p = parseInt(document.getElementById('pInput').value, 10);
-  const q = parseInt(document.getElementById('qInput').value, 10);
-  const e = parseInt(document.getElementById('eInput').value, 10);
-
-  if (!isPrime(p) || !isPrime(q)) {
-    alert('p and q must be primes (small primes for this toy).');
-    return;
-  }
-  if (p === q) { alert('p and q must be different'); return; }
-
-  const n = BigInt(p) * BigInt(q);
-  const phi = BigInt(p - 1) * BigInt(q - 1);
-  const inv = modInverse(BigInt(e), phi);
-  if (inv === null) { alert('e is not invertible modulo phi(n). Choose another e.'); return; }
-
-  RSA.p = BigInt(p); RSA.q = BigInt(q); RSA.n = n; RSA.phi = phi; RSA.e = BigInt(e); RSA.d = inv;
-
-  document.getElementById('keysOut').textContent = `Public key (n, e):\nn = ${n.toString()}\ne = ${e}\n\nPrivate key d:\nd = ${inv.toString()}\n\n(p, q) = (${p}, ${q})\nphi = ${phi.toString()}`;
-}
-
-// quick primality test for small integers
-function isPrime(x) {
-  if (x <= 1) return false;
-  if (x <= 3) return true;
-  if (x % 2 === 0) return false;
-  const r = Math.floor(Math.sqrt(x));
-  for (let i = 3; i <= r; i += 2) if (x % i === 0) return false;
-  return true;
-}
-
-function autoGeneratePrimes() {
-  // choose small primes for demo automatically
-  const smallPrimes = [53,59,61,67,71,73,79,83,89,97,101,103,107,109,113,127,131,137,139,149,151];
-  const p = smallPrimes[Math.floor(Math.random()*smallPrimes.length)];
-  let q = smallPrimes[Math.floor(Math.random()*smallPrimes.length)];
-  while (q === p) q = smallPrimes[Math.floor(Math.random()*smallPrimes.length)];
-  document.getElementById('pInput').value = p;
-  document.getElementById('qInput').value = q;
-  document.getElementById('eInput').value = 17;
-  generateKeys();
-}
-
-/* ---------------------------
-   Encryption / Decryption
-   --------------------------- */
-
-let lastCipher = null;
-let lastCandidatePlain = null;
-let lastCandidateFreq = null;
-
-function encryptText() {
-  if (!RSA.n || !RSA.e) { alert('Generate keys first'); return; }
-  const text = document.getElementById('plainText').value || '';
-  const cps = textToCodePoints(text);
-  // encrypt each code point: c = m^e mod n
-  const cipherNums = cps.map(m => {
-    const c = modPow(BigInt(m), RSA.e, RSA.n);
-    return c.toString(); // store as decimal string
-  });
-  lastCipher = cipherNums; // array of strings
-  document.getElementById('cipherOut').textContent = JSON.stringify(cipherNums);
-  document.getElementById('plainOut').textContent = '—';
-  document.getElementById('decodeOut').textContent = '—';
-  document.getElementById('scoreOut').textContent = '—';
-}
-
-function decryptWithPrivate() {
-  if (!RSA.d || !RSA.n) { alert('Need private key (generate keys first)'); return; }
-  if (!lastCipher) { alert('No ciphertext found (encrypt first)'); return; }
-  const nums = lastCipher.map(s => BigInt(s));
-  const decCps = nums.map(c => Number(modPow(c, RSA.d, RSA.n)));
-  const text = codePointsToText(decCps);
-  document.getElementById('plainOut').textContent = text;
-  lastCandidatePlain = text;
-  lastCandidateFreq = getLetterFreqPercentFromText(text);
-}
-
-/* ---------------------------
-   Decoding attempt without d (factor n)
-   - Trial divide n up to maxTrial
-   - If factors found, compute d and decrypt
-   - Score decrypted candidate by comparing letter frequency to english reference (MSE)
-   --------------------------- */
-
-const englishRef = {
-  a:8.167,b:1.492,c:2.782,d:4.253,e:12.702,f:2.228,g:2.015,
-  h:6.094,i:6.966,j:0.153,k:0.772,l:4.025,m:2.406,n:6.749,
-  o:7.507,p:1.929,q:0.095,r:5.987,s:6.327,t:9.056,u:2.758,
-  v:0.978,w:2.360,x:0.150,y:1.974,z:0.074
-};
-
-function attemptFactorAndDecode() {
-  if (!lastCipher) { alert('No ciphertext available. Encrypt first or paste ciphertext into the "cipherOut" area.'); return; }
-  const n = RSA.n;
-  if (!n) { alert('No n available. Generate keys (or enter n manually by generating keys).'); return; }
-  const maxTrial = parseInt(document.getElementById('maxTrial').value, 10) || 10000;
-  const res = factorSmall(Number(n.toString()), maxTrial);
-  if (!res) {
-    document.getElementById('decodeOut').textContent = `Failed to factor n (trial up to ${maxTrial}). Increase maxTrial or use smaller n.`;
-    return;
-  }
-  const {p,q} = res;
-  const phi = BigInt(p-1) * BigInt(q-1);
-  // try to compute d using known e
-  const d = modInverse(RSA.e, phi);
-  if (!d) {
-    document.getElementById('decodeOut').textContent = `Found factors p=${p}, q=${q} but e is not invertible mod phi.`;
-    return;
-  }
-  // decrypt using computed d
-  const nums = lastCipher.map(s => BigInt(s));
-  const decCps = nums.map(c => Number(modPow(c, d, RSA.n)));
-  const text = codePointsToText(decCps);
-  document.getElementById('decodeOut').textContent = `FACTORED: p=${p}, q=${q}\nComputed d=${d.toString()}\n\nDecoded candidate:\n\n${text}`;
-  // score against english ref
-  const freq = getLetterFreqPercentFromText(text);
-  const score = mseBetween(freq, englishRef);
-  document.getElementById('scoreOut').textContent = `MSE score vs English ref: ${score.toFixed(4)} (lower = closer)`;
-  lastCandidatePlain = text;
-  lastCandidateFreq = freq;
-}
-
-// trial division factorization (works for small n)
-function factorSmall(n, maxTrial) {
-  if (n <= 3) return null;
-  if (n % 2 === 0) return {p:2,q:n/2};
-  const limit = Math.min(Math.floor(Math.sqrt(n)), maxTrial);
-  for (let i = 3; i <= limit; i += 2) {
-    if (n % i === 0) return {p:i, q: n / i};
-  }
-  return null;
-}
-
-// alternative brute-force: try small candidate d values (not efficient, just demo)
-function bruteForceCandidateDs() {
-  if (!lastCipher) { alert('No ciphertext available. Encrypt first.'); return; }
-  const n = RSA.n;
-  if (!n) { alert('No n available.'); return; }
-  // Try d from 1..10000 (very limited)
-  const maxD = 2000;
-  let best = {d:null, score:Infinity, text:null};
-  for (let dCandidate = 1; dCandidate <= maxD; dCandidate++) {
-    try {
       const nums = lastCipher.map(s => BigInt(s));
-      const decs = nums.map(c => Number(modPow(c, BigInt(dCandidate), RSA.n)));
-      const text = codePointsToText(decs);
+      const decCps = nums.map(c => Number(modPow(c, RSA.d, RSA.n)));
+      const text = codePointsToText(decCps);
+      document.getElementById('plainOut').textContent = text;
+      lastCandidatePlain = text;
+      lastCandidateFreq = getLetterFreqPercentFromText(text);
+      renderChart(lastCandidateFreq, 'Decoded Text Letter Distribution');
+    }
+
+    function attemptFactorAndDecode() {
+      // Prova a caricare ciphertext da campo se non già presente
+      if (!lastCipher) {
+        try {
+          const raw = document.getElementById('cipherOut').textContent.trim();
+          if (raw.startsWith('[')) lastCipher = JSON.parse(raw);
+          else throw new Error("Ciphertext non in formato JSON");
+        } catch (err) {
+          alert('No valid ciphertext found (encrypt first or paste a JSON array).');
+          return;
+        }
+      }
+
+      const n = RSA.n;
+      if (!n) { alert('No n available. Generate keys first.'); return; }
+      const maxTrial = parseInt(document.getElementById('maxTrial').value, 10) || 10000;
+      const res = factorSmall(Number(n.toString()), maxTrial);
+      if (!res) {
+        document.getElementById('decodeOut').textContent = `Failed to factor n (trial up to ${maxTrial}). Increase maxTrial or use smaller n.`;
+        return;
+      }
+      const {p,q} = res;
+      const phi = BigInt(p-1) * BigInt(q-1);
+      const d = modInverse(RSA.e, phi);
+      if (!d) {
+        document.getElementById('decodeOut').textContent = `Found factors p=${p}, q=${q} but e is not invertible mod phi.`;
+        return;
+      }
+
+      const nums = lastCipher.map(s => BigInt(s));
+      const decCps = nums.map(c => Number(modPow(c, d, RSA.n)));
+      const text = codePointsToText(decCps);
+      document.getElementById('decodeOut').textContent = `FACTORED: p=${p}, q=${q}\nComputed d=${d.toString()}\n\nDecoded candidate:\n\n${text}`;
       const freq = getLetterFreqPercentFromText(text);
       const score = mseBetween(freq, englishRef);
-      if (score < best.score) best = {d:dCandidate, score, text};
-    } catch(e) {
-      // skip invalid conversions
+      document.getElementById('scoreOut').textContent = `MSE score vs English ref: ${score.toFixed(4)} (lower = closer)`;
+      lastCandidatePlain = text;
+      lastCandidateFreq = freq;
+      renderChart(freq, 'Decoded (Factored) Distribution');
     }
-  }
-  document.getElementById('decodeOut').textContent = `Best candidate d (brute up to ${maxD}): d=${best.d}\nScore=${best.score.toFixed(4)}\n\nDecoded text (best):\n\n${best.text}`;
-  lastCandidatePlain = best.text;
-  lastCandidateFreq = getLetterFreqPercentFromText(best.text);
-  document.getElementById('scoreOut').textContent = `MSE score vs English ref: ${best.score.toFixed(4)}`;
-}
 
-/* ---------------------------
-   Frequency & scoring helpers
-   --------------------------- */
-
-function getLetterFreqPercentFromText(text) {
-  const freq = {};
-  for (let i=97;i<=122;i++) freq[String.fromCharCode(i)] = 0;
-  let total = 0;
-  for (const ch of text.toLowerCase()) {
-    if (/[a-z]/.test(ch)) { freq[ch]++; total++; }
-  }
-  if (total === 0) return freq;
-  for (const k in freq) freq[k] = (freq[k]/total)*100;
-  return freq;
-}
-
-function mseBetween(freqA, freqB) {
-  // both are objects with keys a..z
-  let s = 0;
-  for (const k in freqB) {
-    const a = freqA[k] || 0;
-    const b = freqB[k] || 0;
-    const diff = a - b;
-    s += diff*diff;
-  }
-  return s / 26;
-}
-
-/* ---------------------------
-   Chart rendering
-   --------------------------- */
-
-let chartInstance = null;
-
-function renderCurrentFrequencies() {
-  const candidate = lastCandidateFreq || getLetterFreqPercentFromText(document.getElementById('plainText').value || '');
-  const ref = englishRef;
-  const labels = Object.keys(ref).map(k => k.toUpperCase());
-  const candidateValues = Object.keys(candidate).map(k => candidate[k] || 0);
-  const refValues = Object.keys(ref).map(k => ref[k] || 0);
-
-  const ctx = document.getElementById('freqChart').getContext('2d');
-  if (chartInstance) chartInstance.destroy();
-  chartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [
-        { label: 'Candidate (%)', data: candidateValues, backgroundColor: '#3498db' },
-        { label: 'English ref (%)', data: refValues, backgroundColor: '#95a5a6' }
-      ]
-    },
-    options: {
-      plugins: { title: { display:true, text:'Candidate vs English reference' } },
-      scales: { y: { beginAtZero:true } }
+    function factorSmall(n, limit){
+      for (let i=2;i<=limit;i++){
+        if (n % i === 0) return {p:i,q:n/i};
+      }
+      return null;
     }
-  });
-}
 
-/* ---------------------------
-   Utilities & UI helpers
-   --------------------------- */
+    function getLetterFreqPercentFromText(text){
+      const freq={}; let total=0;
+      for(let i=97;i<=122;i++) freq[String.fromCharCode(i)]=0;
+      for(let c of text.toLowerCase()){
+        if(/[a-z]/.test(c)){freq[c]++; total++;}
+      }
+      for(let k in freq) freq[k]=total>0?(freq[k]/total)*100:0;
+      return freq;
+    }
 
-function showEnglishReference() {
-  document.getElementById('decodeOut').textContent = 'English reference frequencies:\n\n' + JSON.stringify(englishRef, null, 2);
-}
+    function mseBetween(f1,f2){
+      let sum=0; for(let k in f1){const d=f1[k]-f2[k]; sum+=d*d;}
+      return sum/Object.keys(f1).length;
+    }
 
-function clearOutputs() {
-  document.getElementById('cipherOut').textContent = '—';
-  document.getElementById('plainOut').textContent = '—';
-  document.getElementById('decodeOut').textContent = '—';
-  document.getElementById('scoreOut').textContent = '—';
-  lastCipher = null; lastCandidatePlain = null; lastCandidateFreq = null;
-  renderCurrentFrequencies();
-}
-
-/* initialize empty chart */
-(function init() {
-  for (let i=97;i<=122;i++) {} // noop
-  renderCurrentFrequencies();
-})();
-
-</script>
+    let chartInstance=null;
+    function renderChart(frequencies,title){
+      const ctx=document.getElementById('freqChart').getContext('2d');
+      if(chartInstance)chartInstance.destroy();
+      chartInstance=new Chart(ctx,{
+        type:'bar',
+        data:{
+          labels:Object.keys(frequencies).map(l=>l.toUpperCase()),
+          datasets:[{
+            label:'Frequency (%)',
+            data:Object.values(frequencies),
+            backgroundColor:'#3498db',
+            borderRadius:4
+          }]
+        },
+        options:{
+          plugins:{
+            title:{display:true,text:title,font:{size:18}},
+            legend:{display:false}
+          },
+          scales:{
+            y:{beginAtZero:true,title:{display:true,text:'%'}},
+            x:{title:{display:true,text:'Letters'},grid:{display:false}}
+          }
+        }
+      });
+    }
+  </script>
 </body>
 </html>
-
