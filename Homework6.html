@@ -1,1 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Online mean & variance — derivations, implementation & tests</title>
+<style>
+  body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;max-width:980px;margin:28px auto;padding:18px;line-height:1.5;color:#111;background:#f6f8fb;}
+  header{display:flex;gap:12px;align-items:center}
+  h1{margin:.2rem 0;color:#0b5cff}
+  section.card{background:#fff;border-radius:10px;padding:16px;margin:12px 0;box-shadow:0 8px 20px rgba(10,20,40,0.06)}
+  pre{background:#f3f7ff;padding:12px;border-radius:8px;overflow:auto}
+  code{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .muted{color:#556; font-size:.95rem}
+  button{background:#0b5cff;border:none;color:white;padding:8px 12px;border-radius:8px;cursor:pointer}
+  input[type="text"]{width:100%;padding:8px;border-radius:8px;border:1px solid #ddd}
+  table{width:100%;border-collapse:collapse;margin-top:8px}
+  th,td{padding:8px;border-bottom:1px solid #eee;text-align:left}
+  .small{font-size:.9rem;color:#555}
+  .ok{color:green;font-weight:700}
+  .bad{color:#cc0000;font-weight:700}
+</style>
+</head>
+<body>
+
+<header>
+  <div style="width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,#0b5cff,#3b82f6);display:flex;align-items:center;justify-content:center;color:white;font-weight:700">Σ</div>
+  <div>
+    <h1>Online mean & variance — derivations, implementation & tests</h1>
+    <div class="muted">Incremental recurrence formulas, Welford's algorithm and interactive tests</div>
+  </div>
+</header>
+
+<section class="card">
+  <h2>1. Recurrence (derivations)</h2>
+
+  <h3>A. Arithmetic mean (incremental recurrence)</h3>
+  <p class="small">Let x<sub>1</sub>,...,x<sub>n</sub> be observations. Denote the sample mean after n observations as x̄<sub>n</sub>.</p>
+
+  <pre><code>
+// Definition:
+x̄_n = (1/n) * Σ_{i=1..n} x_i
+
+Write Σ_{i=1..n} x_i = Σ_{i=1..(n-1)} x_i + x_n
+=> x̄_n = (1/n) * ( (n-1)*x̄_{n-1} + x_n )
+
+Rearrange:
+x̄_n = x̄_{n-1} + (x_n - x̄_{n-1}) / n
+  </code></pre>
+
+  <p class="small">This gives the simple incremental update: <code>mean = mean + (x - mean)/n</code>.</p>
+
+  <h3>B. Variance (stable incremental form — Welford)</h3>
+  <p class="small">We want a recurrence that updates a quantity from which we can obtain variance without storing all data. Maintain:</p>
+  <ul>
+    <li>n = number of observations</li>
+    <li>mean = x̄_n</li>
+    <li>M2 = Σ_{i=1..n} (x_i - x̄_n)^2 (i.e. sum of squared deviations around current mean)</li>
+  </ul>
+
+  <pre><code>
+// Welford update when a new value x arrives:
+n' = n + 1
+delta = x - mean
+mean' = mean + delta / n'
+delta2 = x - mean'        // = x - (mean + delta/n')
+M2' = M2 + delta * delta2
+
+// After processing all data:
+// sample variance (unbiased) = s^2 = M2 / (n - 1)   (if n > 1)
+// population variance         = σ^2 = M2 / n
+  </code></pre>
+
+  <p class="small">Brief proof (sketch): using algebra on squared deviations and replacing old mean with new mean yields M2' = M2 + (x - mean)*(x - mean'). The form avoids catastrophic cancellation because differences are small when mean is large and computed incrementally.</p>
+</section>
+
+<section class="card">
+  <h2>2. JavaScript implementation (online algorithms)</h2>
+  <div class="grid">
+    <div>
+      <h3>OnlineStats class (Welford)</h3>
+      <pre><code class="language-js">
+// Online (Welford) implementation
+class OnlineStats {
+  constructor(){
+    this.n = 0;
+    this.mean = 0;
+    this.M2 = 0;
+  }
+
+  update(x){
+    this.n += 1;
+    const delta = x - this.mean;
+    this.mean += delta / this.n;
+    const delta2 = x - this.mean;
+    this.M2 += delta * delta2;
+    return this;
+  }
+
+  // returns {n, mean, variancePopulation, varianceSample, stdPopulation, stdSample}
+  result(){
+    const n = this.n;
+    const mean = this.mean;
+    const varPop = n > 0 ? this.M2 / n : NaN;
+    const varSamp = n > 1 ? this.M2 / (n - 1) : NaN;
+    return {
+      n, mean,
+      variancePopulation: varPop,
+      varianceSample: varSamp,
+      stdPopulation: Math.sqrt(varPop),
+      stdSample: Math.sqrt(varSamp)
+    };
+  }
+}
+      </code></pre>
+    </div>
+
+    <div>
+      <h3>Naive (batch) comparators</h3>
+      <pre><code class="language-js">
+// Naive two-pass (stable) batch variance:
+function batchMean(arr){
+  const n = arr.length;
+  if(n === 0) return NaN;
+  let s = 0;
+  for(const v of arr) s += v;
+  return s / n;
+}
+function batchVarTwoPass(arr){
+  const n = arr.length;
+  if(n === 0) return NaN;
+  const mean = batchMean(arr);
+  let s = 0;
+  for(const v of arr){ const d = v - mean; s += d * d; }
+  return {variancePopulation: s / n, varianceSample: n > 1 ? s / (n - 1) : NaN};
+}
+// Single-pass naive using sums (prone to cancellation)
+function batchVarSinglePass(arr){
+  const n = arr.length;
+  if(n === 0) return NaN;
+  let s1 = 0, s2 = 0;
+  for(const v of arr){ s1 += v; s2 += v * v; }
+  const mean = s1 / n;
+  const varPop = s2 / n - mean * mean; // catastrophic cancellation when s2 and mean^2 are similar
+  return {variancePopulation: varPop, varianceSample: n > 1 ? varPop * n/(n-1) : NaN};
+}
+      </code></pre>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>3. Interactive tests (examples)</h2>
+
+  <p class="small">You can run built-in tests below. The page will compare <strong>Welford (online)</strong>, <strong>batch two-pass</strong> and <strong>single-pass</strong> formulas. Notice numerical differences on contrived datasets (very large values, or very small variance).</p>
+
+  <div style="display:flex;gap:8px;margin-bottom:8px">
+    <button id="runDefault">Run demo tests</button>
+    <button id="runLarge">Test large numbers (1e9)</button>
+    <button id="runSmallVar">Test small variance (1e9 + tiny)</button>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h4>1) Example results</h4>
+      <div id="results" class="small">No results yet — click a button above.</div>
+    </div>
+
+    <div class="card">
+      <h4>2) Provide your data (comma-separated)</h4>
+      <input id="dataInput" type="text" placeholder="e.g. 1,2,3,1e9,1e9+1" />
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button id="runCustom">Run on input</button>
+        <button id="clear">Clear</button>
+      </div>
+      <div id="customOutput" class="small" style="margin-top:8px"></div>
+    </div>
+  </div>
+
+  <hr/>
+
+  <h4>3) Explanation of the tests</h4>
+  <p class="small">- <strong>batch two-pass</strong> computes mean then sums squared deviations (numerically stable).<br>
+  - <strong>single-pass</strong> uses Σx and Σx² then computes Var = (Σx²)/n − mean² (can suffer catastrophic cancellation).<br>
+  - <strong>Welford</strong> updates mean and M2 incrementally and is both memory-efficient and numerically stable.</p>
+</section>
+
+<section class="card">
+  <h2>4. Notes on numerical stability</h2>
+  <p class="small">The single-pass formula Var = E[X²] − (E[X])² involves subtraction of two potentially large, nearly equal numbers; when data are large and variance is small that subtraction loses precision (catastrophic cancellation). Welford avoids this by keeping deviations relative to the running mean.</p>
+
+  <h3>When to use which algorithm</h3>
+  <ul>
+    <li><strong>Welford / online:</strong> streaming data, low memory, better numerical stability than naive single-pass.</li>
+    <li><strong>Batch two-pass:</strong> if you have random access to all data and want maximum numerical safety; needs two passes or storing data.</li>
+    <li><strong>Single-pass sums:</strong> fastest but can be dangerously inaccurate for large magnitudes / small variances.</li>
+  </ul>
+</section>
+
+<script>
+  // Insert JS implementations used by buttons
+  class OnlineStats {
+    constructor(){
+      this.n = 0;
+      this.mean = 0;
+      this.M2 = 0;
+    }
+    update(x){
+      this.n += 1;
+      const delta = x - this.mean;
+      this.mean += delta / this.n;
+      const delta2 = x - this.mean;
+      this.M2 += delta * delta2;
+      return this;
+    }
+    result(){
+      const n = this.n;
+      const mean = this.mean;
+      const varPop = n > 0 ? this.M2 / n : NaN;
+      const varSamp = n > 1 ? this.M2 / (n - 1) : NaN;
+      return { n, mean, variancePopulation: varPop, varianceSample: varSamp, stdPopulation: Math.sqrt(varPop), stdSample: Math.sqrt(varSamp) };
+    }
+  }
+
+  function batchMean(arr){
+    const n = arr.length;
+    if(n===0) return NaN;
+    let s=0;
+    for(const v of arr) s+=v;
+    return s/n;
+  }
+  function batchVarTwoPass(arr){
+    const n = arr.length;
+    if(n===0) return {variancePopulation:NaN, varianceSample:NaN};
+    const mean = batchMean(arr);
+    let s=0;
+    for(const v of arr){ const d=v-mean; s+=d*d; }
+    return {variancePopulation: s/n, varianceSample: n>1 ? s/(n-1) : NaN};
+  }
+  function batchVarSinglePass(arr){
+    const n = arr.length;
+    if(n===0) return {variancePopulation:NaN, varianceSample:NaN};
+    let s1=0,s2=0;
+    for(const v of arr){ s1+=v; s2+=v*v; }
+    const mean=s1/n;
+    const varPop = s2/n - mean*mean;
+    // numerical issues happen here if s2/n and mean*mean are close
+    return {variancePopulation: varPop, varianceSample: n>1 ? varPop*n/(n-1) : NaN};
+  }
+
+  function formatNum(x){
+    if(Number.isNaN(x)) return 'NaN';
+    if(!isFinite(x)) return String(x);
+    return x.toPrecision(9);
+  }
+
+  function runTest(arr){
+    // arr assumed numbers
+    const os = new OnlineStats();
+    for(const v of arr) os.update(v);
+    const online = os.result();
+    const two = (() => { const r = batchVarTwoPass(arr); return { mean: batchMean(arr), variancePopulation:r.variancePopulation, varianceSample:r.varianceSample }; })();
+    const single = (() => { const r = batchVarSinglePass(arr); return { mean: batchMean(arr), variancePopulation:r.variancePopulation, varianceSample:r.varianceSample }; })();
+
+    // Differences
+    const diffPopTwo = (online.variancePopulation - two.variancePopulation);
+    const diffPopSingle = (online.variancePopulation - single.variancePopulation);
+
+    return {online, two, single, diffPopTwo, diffPopSingle};
+  }
+
+  function prettyTable(res, label){
+    const out = [];
+    out.push('<strong>' + label + '</strong>');
+    out.push('<table><thead><tr><th>Method</th><th>n</th><th>mean</th><th>varPop</th><th>varSamp</th></tr></thead><tbody>');
+    out.push(`<tr><td>Welford (online)</td><td>${res.online.n}</td><td>${formatNum(res.online.mean)}</td><td>${formatNum(res.online.variancePopulation)}</td><td>${formatNum(res.online.varianceSample)}</td></tr>`);
+    out.push(`<tr><td>Batch two-pass</td><td>${res.online.n}</td><td>${formatNum(res.two.mean)}</td><td>${formatNum(res.two.variancePopulation)}</td><td>${formatNum(res.two.varianceSample)}</td></tr>`);
+    out.push(`<tr><td>Batch single-pass</td><td>${res.online.n}</td><td>${formatNum(res.single.mean)}</td><td>${formatNum(res.single.variancePopulation)}</td><td>${formatNum(res.single.varianceSample)}</td></tr>`);
+    out.push('</tbody></table>');
+    return out.join('');
+  }
+
+  function makeLargeArray(base=1e9, n=10){
+    // values base, base+1, base+2, ...
+    const a=[];
+    for(let i=0;i<n;i++) a.push(base + i);
+    return a;
+  }
+
+  function makeSmallVarArray(base=1e9, n=20, eps=1e-6){
+    // many values very close to base, tiny variance
+    const a=[];
+    for(let i=0;i<n;i++){
+      // distribute tiny noise around zero
+      const noise = ((i % 2 === 0) ? 1 : -1) * (eps * (i/ (n-1)));
+      a.push(base + noise);
+    }
+    return a;
+  }
+
+  function arrToString(arr){
+    return '[' + arr.map(v => v.toString()).join(', ') + ']';
+  }
+
+  // Buttons
+  document.getElementById('runDefault').addEventListener('click', ()=>{
+    const arr = [10, 12, 23, 23, 16, 23, 21, 16]; // simple example
+    const res = runTest(arr);
+    document.getElementById('results').innerHTML = prettyTable(res, 'Simple example: ' + arrToString(arr));
+  });
+
+  document.getElementById('runLarge').addEventListener('click', ()=>{
+    const arr = makeLargeArray(1e9, 10);
+    const res = runTest(arr);
+    document.getElementById('results').innerHTML = prettyTable(res, 'Large numbers example: ' + arrToString(arr)) +
+      '<div class="small" style="margin-top:8px">Note: single-pass formula may lose precision when variance is small relative to magnitude.</div>';
+  });
+
+  document.getElementById('runSmallVar').addEventListener('click', ()=>{
+    const arr = makeSmallVarArray(1e9, 50, 1e-6);
+    const res = runTest(arr);
+    document.getElementById('results').innerHTML = prettyTable(res, 'Small variance, large base example: ' + 'base=1e9, tiny noise') +
+      '<div class="small" style="margin-top:8px">Observe any disagreement: single-pass often produces inaccurate variance due to cancellation; Welford matches two-pass.</div>';
+  });
+
+  document.getElementById('runCustom').addEventListener('click', ()=>{
+    const txt = document.getElementById('dataInput').value.trim();
+    if(!txt){ document.getElementById('customOutput').innerHTML = '<span class="bad">Please enter comma-separated numbers.</span>'; return; }
+    try{
+      // parse numbers (allow scientific notation)
+      const arr = txt.split(',').map(s => Number(s.trim())).filter(x => !Number.isNaN(x));
+      if(arr.length === 0){ document.getElementById('customOutput').innerHTML = '<span class="bad">No valid numbers parsed.</span>'; return; }
+      const res = runTest(arr);
+      document.getElementById('customOutput').innerHTML = prettyTable(res, 'Custom input') ;
+    } catch(e){
+      document.getElementById('customOutput').innerHTML = '<span class="bad">Error parsing input.</span>';
+    }
+  });
+
+  document.getElementById('clear').addEventListener('click', ()=>{
+    document.getElementById('dataInput').value = '';
+    document.getElementById('customOutput').innerHTML = '';
+    document.getElementById('results').innerHTML = 'No results yet — click a button above.';
+  });
+
+</script>
+
+<footer style="text-align:center;margin-top:18px;color:#556">
+  Implementation notes: Welford's algorithm is numerically stable, single-pass Σx² − mean² is not. For precise statistical inference use two-pass or compensated algorithms when possible.
+</footer>
+
+</body>
+</html>
 
