@@ -1,1 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Measures of Location and Dispersion — Summary</title>
+  <style>
+    body{
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      max-width: 1000px;
+      margin: 36px auto;
+      padding: 18px;
+      line-height: 1.6;
+      color: #111;
+      background: #f7fafc;
+    }
+    header { text-align:center; margin-bottom:18px; }
+    h1 { margin: 6px 0; font-size: 24px; color: #0b5cff; }
+    h2 { color:#0b5cff; margin-top:22px; margin-bottom:6px; }
+    section { background: #fff; border-radius: 10px; padding:16px; box-shadow: 0 6px 18px rgba(12,20,44,0.06); margin-bottom:14px; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td { text-align:left; padding:8px; border-bottom:1px solid #eee; }
+    th { background:#fbfcff; font-weight:700; }
+    code { background:#f1f5f9; padding:2px 6px; border-radius:6px; }
+    .formula { font-family: "Courier New", monospace; background:#f8fafc; padding:6px; border-radius:6px; display:inline-block; margin-top:6px; }
+    ul { margin:8px 0 8px 20px; }
+    .muted { color:#586069; font-size:14px; }
+    footer { font-size:13px; color:#6b7280; text-align:center; margin-top:14px; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Measures of Location and Dispersion</h1>
+    <div class="muted">Common types, formulas, uses, advantages and limitations</div>
+  </header>
+
+  <section>
+    <h2>Introduction</h2>
+    <p>
+      In statistics, <strong>measures of location</strong> (also called measures of central tendency) summarize the "center" or typical value of a dataset.
+      <strong>Measures of dispersion</strong> describe how spread out the data are around that center. Both families of measures are required to understand a dataset:
+      a single central value without a measure of spread is usually insufficient to characterise the data.
+    </p>
+  </section>
+
+  <section>
+    <h2>Common measures of location (central tendency)</h2>
+
+    <h3>1. Arithmetic mean (sample &amp; population)</h3>
+    <p>
+      The arithmetic mean (average) is the sum of observations divided by the number of observations.
+      It is the most commonly used measure of center.
+    </p>
+    <div class="formula">
+      Mean (population): &mu; = (1/N) &Sigma;<sub>i=1</sub><sup>N</sup> x<sub>i</sub><br>
+      Mean (sample): \(\bar{x} = \dfrac{1}{n}\sum_{i=1}^n x_i\)
+    </div>
+    <p><strong>Uses:</strong> Good for quantitative, symmetric data; used in many statistical methods (e.g., least squares).<br>
+       <strong>Advantages:</strong> Efficient estimator under many models, easy to compute and to manipulate analytically.<br>
+       <strong>Limitations:</strong> Sensitive to outliers and skewed distributions.</p>
+
+    <h3>2. Median</h3>
+    <p>
+      The median is the middle value when observations are ordered. For an even number of observations it is commonly the average of the two middle values.
+    </p>
+    <div class="formula">Median: middle order statistic (50th percentile)</div>
+    <p><strong>Uses:</strong> Preferred in skewed distributions or when outliers are present (e.g., incomes, house prices).<br>
+       <strong>Advantages:</strong> Robust to outliers; reflects a typical value in skewed data.<br>
+       <strong>Limitations:</strong> Less efficient than the mean for symmetric, light-tailed data; harder to manipulate analytically.</p>
+
+    <h3>3. Mode</h3>
+    <p>
+      The mode is the most frequently occurring value(s) in the dataset. For continuous data, modes can be estimated from density peaks.
+    </p>
+    <div class="formula">Mode: argmax of frequency / density</div>
+    <p><strong>Uses:</strong> Useful for categorical data or to identify common values (e.g., most common category, common defect).<br>
+       <strong>Advantages:</strong> Intuitive for categorical variables; unaffected by extreme numeric values.<br>
+       <strong>Limitations:</strong> May not be unique; for continuous variables it is less well-defined and sensitive to smoothing choices.</p>
+
+    <h3>4. Other location measures (brief)</h3>
+    <ul>
+      <li><strong>Trimmed mean:</strong> Mean after removing a fixed percentage of the smallest and largest observations (robust compromise between mean and median).</li>
+      <li><strong>Weighted mean:</strong> Mean where observations have weights (useful when samples have different importances).</li>
+      <li><strong>Geometric mean / Harmonic mean:</strong> Useful for multiplicative processes or rates (e.g., growth rates).</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Common measures of dispersion (spread)</h2>
+
+    <h3>1. Range</h3>
+    <p>The range is the difference between maximum and minimum: <code>range = max(x) - min(x)</code>.</p>
+    <p><strong>Uses:</strong> Quick indicator of spread.<br>
+       <strong>Advantages:</strong> Simple to compute and understand.<br>
+       <strong>Limitations:</strong> Highly sensitive to outliers; ignores distribution shape.</p>
+
+    <h3>2. Variance and Standard Deviation</h3>
+    <p>
+      Variance measures average squared deviation from the mean; standard deviation (SD) is its square root and is in the same units as the data.
+    </p>
+    <div class="formula">
+      Population variance: &sigma;<sup>2</sup> = (1/N)&Sigma;(x<sub>i</sub> - &mu;)<sup>2</sup><br>
+      Sample variance: s<sup>2</sup> = (1/(n-1))&Sigma;(x<sub>i</sub> - x̄)<sup>2</sup><br>
+      Standard deviation: s = &radic;(s<sup>2</sup>)
+    </div>
+    <p><strong>Uses:</strong> Foundational in inference, hypothesis testing, confidence intervals, regression and many models assume or use variance/SD.<br>
+       <strong>Advantages:</strong> Mathematically convenient; relates to least-squares methods; captures overall dispersion.<br>
+       <strong>Limitations:</strong> Sensitive to outliers; because it squares deviations, extreme values have large influence.</p>
+
+    <h3>3. Interquartile Range (IQR)</h3>
+    <p>
+      IQR = Q<sub>3</sub> − Q<sub>1</sub>, the difference between the 75th and 25th percentiles. It measures the spread of the middle 50% of data.
+    </p>
+    <p><strong>Uses:</strong> Robust measure of spread when data contains outliers or is skewed; used to detect outliers (e.g., Tukey's fences).<br>
+       <strong>Advantages:</strong> Resistant to extreme values; easy to interpret.<br>
+       <strong>Limitations:</strong> Ignores tails of the distribution; less efficient for symmetric, light-tailed distributions compared to SD.</p>
+
+    <h3>4. Median Absolute Deviation (MAD)</h3>
+    <p>
+      MAD = median(|x<sub>i</sub> − median(x)|). A robust measure of variability often scaled by a constant (≈1.4826) to estimate SD under normality.
+    </p>
+    <p><strong>Uses:</strong> Robust alternative to SD for outlier-prone data.<br>
+       <strong>Advantages:</strong> Very robust; simple concept.<br>
+       <strong>Limitations:</strong> Less efficient if data are normal.</p>
+
+    <h3>5. Coefficient of Variation (CV)</h3>
+    <p>
+      CV = SD / mean. It is a dimensionless measure that expresses variability relative to the mean.
+    </p>
+    <p><strong>Uses:</strong> Comparing variability across datasets with different units or scales (e.g., comparing variation in different sensors).<br>
+       <strong>Advantages:</strong> Unitless and comparable across datasets.<br>
+       <strong>Limitations:</strong> Not defined if the mean is near zero or exactly zero; sensitive to translation of data.</p>
+
+    <h3>6. Percentiles and quantiles</h3>
+    <p>
+      Percentiles (e.g., 10th, 90th) describe locations in the distribution and together can characterize spread and tail behavior.
+    </p>
+  </section>
+
+  <section>
+    <h2>When to use which measure — guidance and examples</h2>
+
+    <h3>Symmetric, light-tailed data (approximately normal)</h3>
+    <ul>
+      <li><strong>Location:</strong> Arithmetic mean is efficient and preferred.</li>
+      <li><strong>Dispersion:</strong> Standard deviation and variance are natural choices and integrate well with parametric methods (t-tests, ANOVA, regression).</li>
+    </ul>
+
+    <h3>Skewed data or data with outliers</h3>
+    <ul>
+      <li><strong>Location:</strong> Median or trimmed mean is preferable because they are robust to extreme values.</li>
+      <li><strong>Dispersion:</strong> IQR or MAD provide robust measures of spread; do not rely only on range or SD.</li>
+    </ul>
+
+    <h3>Categorical data</h3>
+    <ul>
+      <li><strong>Location:</strong> Mode (most frequent category) is appropriate.</li>
+      <li><strong>Dispersion:</strong> Use frequency tables, entropy, or measures like diversity indices rather than variance/SD.</li>
+    </ul>
+
+    <h3>Comparing variability across datasets with different scales</h3>
+    <ul>
+      <li>Use <strong>coefficient of variation</strong> to compare relative variability when means differ, but be cautious if means are near zero.</li>
+    </ul>
+
+    <h3>Small samples</h3>
+    <ul>
+      <li>Sample estimates can be noisy; prefer robust measures if outliers likely; use corrected sample variance formula (divide by n−1) for unbiased variance estimate.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Advantages &amp; limitations — summary table</h2>
+    <table>
+      <thead>
+        <tr><th>Measure</th><th>Advantages</th><th>Limitations</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Mean</td>
+          <td>Efficient for symmetric distributions; analytically convenient</td>
+          <td>Highly sensitive to outliers and skewness</td>
+        </tr>
+        <tr>
+          <td>Median</td>
+          <td>Robust to outliers; good for skewed data</td>
+          <td>Less efficient for normal-like data; not easily decomposed algebraically</td>
+        </tr>
+        <tr>
+          <td>Mode</td>
+          <td>Useful for categorical data; identifies most common value</td>
+          <td>May be non-unique; unstable for continuous data</td>
+        </tr>
+        <tr>
+          <td>Variance / SD</td>
+          <td>Standard in inference; connects to many models</td>
+          <td>Squares deviations → sensitive to outliers</td>
+        </tr>
+        <tr>
+          <td>IQR / MAD</td>
+          <td>Robust to outliers; summarize middle spread</td>
+          <td>Ignore tails; less efficient under normality</td>
+        </tr>
+        <tr>
+          <td>Range</td>
+          <td>Extremely simple</td>
+          <td>Very sensitive to outliers; ignores distribution shape</td>
+        </tr>
+        <tr>
+          <td>CV</td>
+          <td>Unitless; compares relative variability</td>
+          <td>Misleading when mean ≈ 0; depends on mean's scale</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Practical recommendations</h2>
+    <ul>
+      <li>Always report at least one measure of location <em>and</em> one measure of dispersion (e.g., mean ± SD or median + IQR).</li>
+      <li>Look at data visually (histogram, boxplot, density) before choosing statistics — plots reveal skewness and outliers.</li>
+      <li>For skewed/outlier-prone data prefer median + IQR or trimmed mean + robust SD; for roughly normal data prefer mean ± SD.</li>
+      <li>Be explicit whether estimates are for the sample or population and which formula you used (e.g., sample variance with n−1 denominator).</li>
+      <li>When comparing groups, use scale-appropriate measures (CV for relative comparison, absolute SD for absolute differences).</li>
+    </ul>
+  </section>
+
+  <footer>
+    Short reference: formulas shown are the standard definitions; choose robust vs classical measures depending on distribution shape, sample size, and purpose (description vs inference).
+  </footer>
+</body>
+</html>
 
