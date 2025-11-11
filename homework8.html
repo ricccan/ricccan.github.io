@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analogies Between Bernoulli Process, Binomial Models, and Combinatorial Structures</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Roboto, Arial, sans-serif;
+      max-width: 900px;
+      margin: 50px auto;
+      padding: 20px;
+      background-color: #f9fafc;
+      color: #222;
+      line-height: 1.6;
+    }
+    h1 {
+      text-align: center;
+      color: #003366;
+    }
+    h2 {
+      color: #004080;
+      margin-top: 30px;
+    }
+    p {
+      margin-bottom: 14px;
+      text-align: justify;
+    }
+    ul {
+      margin-left: 25px;
+    }
+    code {
+      background: #eef2f6;
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-size: 0.95em;
+    }
+    footer {
+      text-align: center;
+      font-size: 13px;
+      margin-top: 30px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Analogies Between Bernoulli Process, Binomial Models, and Combinatorial Structures</h1>
+
+  <h2>Introduction</h2>
+  <p>
+    The present discussion highlights the conceptual and mathematical analogies between the Bernoulli process simulation
+    used in the Law of Large Numbers (LLN) experiment and the random walk model based on binomial behavior from the
+    previous homework. Both rely on sequences of independent binary outcomes, yet they differ in focus, objectives,
+    and the interpretations of their resulting distributions.
+  </p>
+
+  <h2>1. The Bernoulli Process and the Law of Large Numbers</h2>
+  <p>
+    A Bernoulli process consists of independent trials with two possible outcomes, often coded as success (1) or failure (0),
+    each with constant probability <code>p</code> of success. The Law of Large Numbers (LLN) states that as the number of trials <code>n</code>
+    increases, the sample mean of these outcomes converges to the true probability <code>p</code>. Mathematically:
+  </p>
+  <p style="text-align:center;"><code>lim (n → ∞) (1/n) Σ Xᵢ = p</code></p>
+  <p>
+    where <code>Xᵢ</code> are i.i.d. Bernoulli random variables. This convergence underpins the idea of empirical stability
+    in probabilistic systems and serves as a foundation for statistical inference.
+  </p>
+
+  <h2>2. The Random Walk Analogy</h2>
+  <p>
+    In the previous simulation, each trial corresponds to a week in which the server remains secure (+1) or is breached (-1).
+    The cumulative score after <code>n</code> weeks forms a <strong>random walk</strong> on the integer line.
+    This random walk is algebraically equivalent to a shifted and scaled binomial random variable:
+  </p>
+  <p style="text-align:center;"><code>S = 2K − n</code>, where <code>K ~ Binomial(n, q)</code>.</p>
+  <p>
+    This relation directly connects the random walk model with the Bernoulli process:
+    both arise from sequences of binary outcomes, but while the Bernoulli process focuses on frequencies and convergence
+    of averages (LLN), the random walk emphasizes cumulative deviations and distributional properties.
+  </p>
+
+  <h2>3. Connection with the Binomial Distribution</h2>
+  <p>
+    Both frameworks yield binomial distributions for the count of successful outcomes. The binomial probability mass function:
+  </p>
+  <p style="text-align:center;"><code>P(K = k) = C(n, k) p^k (1 - p)^(n - k)</code></p>
+  <p>
+    illustrates how the coefficients <code>C(n, k)</code> = <code>n! / [k! (n - k)!]</code> play a key role in weighting
+    the number of ways to obtain exactly <code>k</code> successes in <code>n</code> trials. In both the LLN and random walk,
+    these coefficients define the shape and symmetry of the outcome distributions.
+  </p>
+
+  <h2>4. Pascal’s Triangle and the Binomial Expansion</h2>
+  <p>
+    The coefficients <code>C(n, k)</code> form Pascal’s triangle, where each entry is the sum of the two directly above it:
+  </p>
+  <p style="text-align:center;"><code>C(n, k) = C(n−1, k−1) + C(n−1, k)</code></p>
+  <p>
+    This recurrence mirrors the combinatorial logic of Bernoulli trials: any sequence with <code>k</code> successes in <code>n</code> trials
+    can end with either a success or a failure, contributing to the counts recursively. The same coefficients appear in the
+    <strong>binomial expansion</strong>:
+  </p>
+  <p style="text-align:center;"><code>(p + q)^n = Σ C(n, k) p^k q^(n−k)</code></p>
+  <p>
+    which provides a direct algebraic representation of the probability distribution across all possible outcomes of <code>n</code> trials.
+  </p>
+
+  <h2>5. Fibonacci and Combinatorial Structures</h2>
+  <p>
+    Combinatorial coefficients like <code>C(n, k)</code> also have deep links to the Fibonacci sequence.
+    By summing the entries along certain diagonals of Pascal’s triangle, one obtains Fibonacci numbers:
+  </p>
+  <p style="text-align:center;"><code>F(n) = Σ C(n−1−i, i)</code></p>
+  <p>
+    This relation reflects how combinatorial counting principles underlie both stochastic and recursive numerical structures.
+    The random walk itself can be interpreted as counting the number of distinct paths reaching a certain position,
+    similar to how Fibonacci counts possible sequences under specific recurrence constraints.
+  </p>
+
+  <h2>6. Similarities and Differences</h2>
+  <ul>
+    <li><strong>Similarity:</strong> Both models rely on independent Bernoulli trials with constant probabilities.</li>
+    <li><strong>Similarity:</strong> Both converge toward binomial behavior and are governed by combinatorial coefficients <code>C(n, k)</code>.</li>
+    <li><strong>Difference:</strong> The LLN focuses on the convergence of means, while the random walk focuses on cumulative sums and their distributions.</li>
+    <li><strong>Difference:</strong> The LLN describes asymptotic stability, whereas the random walk reveals stochastic variability and dispersion.</li>
+    <li><strong>Difference:</strong> The random walk interpretation emphasizes symmetry, variance, and probabilistic trajectories, while the LLN emphasizes expected values and averages.</li>
+  </ul>
+
+  <h2>7. Mathematical and Conceptual Summary</h2>
+  <p>
+    The Bernoulli process provides the fundamental probabilistic mechanism; the binomial distribution quantifies its finite-sample behavior;
+    Pascal’s triangle and binomial coefficients encode the combinatorial structure of outcome possibilities;
+    the Fibonacci connection and related recursive relationships illustrate how probabilistic and combinatorial systems
+    share deep structural analogies across mathematics and applied statistics.
+  </p>
+
+  <footer>
+    Homework Discussion — Analogy between Bernoulli Processes, Random Walks, and Combinatorial Mathematics
+  </footer>
+
+</body>
+</html>
