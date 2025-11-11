@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Server security trajectories — random walk and binomial convergence</title>
+<style>
+  body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;max-width:1100px;margin:26px auto;padding:16px;color:#111;background:#f4f6fb;}
+  header{display:flex;gap:12px;align-items:center}
+  h1{margin:.2rem 0;color:#0747a6}
+  .card{background:#fff;border-radius:10px;padding:14px;margin:12px 0;box-shadow:0 8px 24px rgba(12,20,40,0.06)}
+  label{display:block;margin-top:8px;font-weight:600;font-size:14px}
+  input[type="number"], input[type="text"]{padding:8px;border-radius:8px;border:1px solid #ddd;width:140px}
+  button{background:#0747a6;color:#fff;border:none;padding:10px 14px;border-radius:8px;cursor:pointer}
+  .controls{display:flex;gap:12px;flex-wrap:wrap;align-items:end}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  canvas{width:100%;height:300px;background:#fff;border-radius:8px;border:1px solid #eee}
+  table{width:100%;border-collapse:collapse;margin-top:8px}
+  th,td{padding:8px;border-bottom:1px solid #eee;text-align:right}
+  th{text-align:left;background:#fbfdff}
+  .muted{color:#586069;font-size:13px}
+  .small{font-size:13px;color:#555}
+  .inline{display:inline-block;vertical-align:middle}
+  footer{font-size:13px;color:#556;text-align:center;margin-top:12px}
+  @media(max-width:760px){ .grid2{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,#0747a6,#2b7cff);display:flex;align-items:center;justify-content:center;color:white;font-weight:800">RW</div>
+  <div>
+    <h1>Server security trajectories — random walk ↔ binomial convergence</h1>
+    <div class="muted">Each week: +1 if server stays secure (no attacker breaches), -1 if breached. Multiple attackers per week (m) each breach with prob p.</div>
+  </div>
+</header>
+
+<section class="card">
+  <h2>Model and mapping</h2>
+  <p class="small">
+    If each attacker breaches in a week with probability <code>p</code> independently, the probability the server remains secure in a week is
+    <strong>q = (1 - p)<sup>m</sup></strong> (none of the m attackers succeed). For n weeks, the number of secure weeks k ~ Binomial(n, q).
+    The total score S (random-walk-like) obtained by assigning +1 for secure and -1 for breached weeks is:
+    <strong>S = 2k − n</strong>, so S ∈ {−n, −n+2, ..., n−2, n}.
+  </p>
+  <p class="small">This page simulates many independent trajectories and compares empirical counts of S with the theoretical binomial probabilities for k.</p>
+</section>
+
+<section class="card">
+  <h3>Simulation parameters</h3>
+  <div class="controls">
+    <div>
+      <label>n (weeks)</label>
+      <input id="nInput" type="number" min="1" value="20" />
+    </div>
+    <div>
+      <label>m (attackers per week)</label>
+      <input id="mInput" type="number" min="1" value="3" />
+    </div>
+    <div>
+      <label>p (prob. attacker succeeds)</label>
+      <input id="pInput" type="text" value="0.05" />
+    </div>
+    <div>
+      <label>Simulations (trajectories)</label>
+      <input id="trialsInput" type="number" min="1" value="20000" />
+    </div>
+    <div style="min-width:160px">
+      <button id="runBtn">Run simulation</button>
+    </div>
+    <div>
+      <label>Random seed (optional)</label>
+      <input id="seedInput" type="text" placeholder="leave blank for random" />
+    </div>
+  </div>
+  <div style="margin-top:10px" class="small">
+    Tip: increase <strong>Simulations</strong> to see better convergence; increase <strong>n</strong> and/or change <strong>m</strong>, <strong>p</strong> to observe distribution shift.
+  </div>
+</section>
+
+<section class="card grid2">
+  <div>
+    <h3>Histogram: empirical vs theoretical</h3>
+    <canvas id="histCanvas" width="800" height="320"></canvas>
+    <div class="small" id="errorDiv"></div>
+  </div>
+
+  <div>
+    <h3>Counts & theoretical expectations</h3>
+    <div id="tableDiv" style="max-height:320px;overflow:auto"></div>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Interpretation and convergence diagnostics</h3>
+  <p class="small" id="interpret"></p>
+  <p class="small"><strong>Notes:</strong> As the number of simulations grows, empirical frequencies ≈ theoretical probabilities × trials (law of large numbers). As n increases the distribution of S (or of k) becomes wider (larger variance) — shape determined by n and q.</p>
+</section>
+
+<footer class="card">
+  <div class="small">Implementation: the simulation draws weekly outcomes as Bernoulli(q) where q = (1-p)^m. The mapping S = 2k − n links the random walk score to the Binomial(n,q).</div>
+</footer>
+
+<script>
+(function(){
+  // Utility: seeded PRNG (Mulberry32)
+  function makeSeededRNG(seedStr){
+    if(!seedStr) return Math.random;
+    // simple hash to integer
+    let h = 2166136261 >>> 0;
+    for(let i=0;i<seedStr.length;i++){
+      h ^= seedStr.charCodeAt(i);
+      h = Math.imul(h,16777619);
+      h >>>= 0;
+    }
+    let seed = h >>> 0;
+    return function(){
+      seed |= 0;
+      seed = seed + 0x6D2B79F5 | 0;
+      var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  // Compute binomial coefficient C(n,k) safely (iterative)
+  function binomial(n,k){
+    if(k < 0 || k > n) return 0;
+    k = Math.min(k, n-k);
+    let res = 1;
+    for(let i=1;i<=k;i++){
+      res = res * (n - k + i) / i;
+    }
+    return res;
+  }
+
+  // Compute theoretical binomial probabilities for k=0..n with prob q
+  function binomProbArray(n,q){
+    const probs = new Array(n+1);
+    for(let k=0;k<=n;k++){
+      // use iterative to avoid big factorials: C(n,k) q^k (1-q)^(n-k)
+      probs[k] = binomial(n,k) * Math.pow(q,k) * Math.pow(1-q,n-k);
+    }
+    return probs;
+  }
+
+  // Simulation: for each trial, simulate n weeks, per-week secure prob q
+  function simulateTrials(n, q, trials, rng){
+    const countsK = new Array(n+1).fill(0);
+    for(let t=0;t<trials;t++){
+      let k = 0;
+      for(let i=0;i<n;i++){
+        if(rng() < q) k++;
+      }
+      countsK[k] ++;
+    }
+    return countsK;
+  }
+
+  // canvas drawing helpers
+  function drawHistogram(canvas, labels, empiricalCounts, theoreticalCounts, trials){
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0,0,w,h);
+    // margins
+    const margin = {l:36, r:12, t:20, b:36};
+    const plotW = w - margin.l - margin.r;
+    const plotH = h - margin.t - margin.b;
+
+    // scale
+    const maxEmp = Math.max(...empiricalCounts);
+    const maxTheo = Math.max(...theoreticalCounts.map(p => p * trials));
+    const yMax = Math.max(maxEmp, maxTheo, 1);
+    const nBars = labels.length;
+    const barW = plotW / nBars * 0.9;
+    const gap = plotW / nBars * 0.1;
+
+    // axes
+    ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(margin.l, margin.t); ctx.lineTo(margin.l, margin.t+plotH); ctx.lineTo(margin.l+plotW, margin.t+plotH); ctx.stroke();
+
+    // draw theoretical bars (outline) and empirical bars (filled)
+    for(let i=0;i<nBars;i++){
+      const x = margin.l + i * (barW + gap) + gap/2;
+      const theoH = theoreticalCounts[i] * trials / yMax * plotH;
+      const empH = empiricalCounts[i] / yMax * plotH;
+
+      // theoretical as thin outline
+      ctx.fillStyle = 'rgba(0,115,230,0.06)';
+      ctx.fillRect(x, margin.t + plotH - theoH, barW, theoH);
+      ctx.strokeStyle = '#0770d6';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, margin.t + plotH - theoH, barW, theoH);
+
+      // empirical filled
+      ctx.fillStyle = 'rgba(3,155,116,0.7)';
+      ctx.fillRect(x + 2, margin.t + plotH - empH, barW - 4, empH);
+
+      // labels
+      ctx.fillStyle = '#333'; ctx.font = '12px system-ui';
+      const lab = labels[i];
+      ctx.save();
+      ctx.translate(x + barW/2, margin.t + plotH + 14);
+      ctx.textAlign = 'center';
+      ctx.fillText(lab, 0, 0);
+      ctx.restore();
+    }
+
+    // legend
+    ctx.fillStyle = '#0770d6'; ctx.fillRect(w-220,12,12,12);
+    ctx.fillStyle = '#333'; ctx.font='12px system-ui'; ctx.fillText('theoretical (expected counts)', w-200, 22);
+    ctx.fillStyle = 'rgba(3,155,116,0.7)'; ctx.fillRect(w-220,34,12,12);
+    ctx.fillStyle = '#333'; ctx.fillText('empirical (simulated counts)', w-200, 44);
+  }
+
+  // main runner
+  const nInput = document.getElementById('nInput');
+  const mInput = document.getElementById('mInput');
+  const pInput = document.getElementById('pInput');
+  const trialsInput = document.getElementById('trialsInput');
+  const runBtn = document.getElementById('runBtn');
+  const histCanvas = document.getElementById('histCanvas');
+  const tableDiv = document.getElementById('tableDiv');
+  const interpret = document.getElementById('interpret');
+  const seedInput = document.getElementById('seedInput');
+  const errorDiv = document.getElementById('errorDiv');
+
+  function safeNumber(v, fallback){
+    const x = Number(v);
+    return Number.isFinite(x) ? x : fallback;
+  }
+
+  runBtn.addEventListener('click', ()=>{
+    let n = Math.max(1, Math.floor(safeNumber(nInput.value,20)));
+    let m = Math.max(1, Math.floor(safeNumber(mInput.value,3)));
+    let p = safeNumber(pInput.value, 0.05);
+    if(p < 0) p = 0; if(p>1) p=1;
+    let trials = Math.max(1, Math.floor(safeNumber(trialsInput.value,20000)));
+    const seed = seedInput.value.trim();
+
+    const rng = makeSeededRNG(seed);
+
+    // per-week secure prob
+    const q = Math.pow(1 - p, m);
+    if(!isFinite(q)) { errorDiv.innerText = 'Computed q is not finite. Check p and m.'; return; } else errorDiv.innerText = '';
+
+    // simulate
+    const countsK = simulateTrials(n, q, trials, rng); // counts per k secure weeks
+    // map k -> score S = 2k - n. We want labels for S from -n to n step 2
+    const labels = [];
+    const kList = [];
+    for(let k=0;k<=n;k++){
+      const S = 2*k - n;
+      labels.push(String(S));
+      kList.push(k);
+    }
+    // empirical counts aligned with labels
+    const empiricalCounts = countsK.slice();
+
+    // theoretical probabilities
+    const probs = binomProbArray(n,q);
+    const theoreticalCounts = probs.map(p => p * trials);
+
+    // draw histogram
+    drawHistogram(histCanvas, labels, empiricalCounts, probs, trials);
+
+    // table: show k, S, empirical count, theoretical expected count, prob, abs diff
+    let html = '<table><thead><tr><th>k (secure weeks)</th><th>Score S</th><th>empirical</th><th>theoretical (expected)</th><th>prob</th><th>abs diff (counts)</th></tr></thead><tbody>';
+    let totalAbsDiff = 0;
+    for(let k=0;k<=n;k++){
+      const S = 2*k - n;
+      const emp = empiricalCounts[k];
+      const theo = theoreticalCounts[k];
+      const prob = probs[k];
+      const absd = Math.abs(emp - theo);
+      totalAbsDiff += absd;
+      html += `<tr><td style="text-align:left">${k}</td><td style="text-align:left">${S}</td><td>${emp.toLocaleString()}</td><td>${theo.toFixed(3)}</td><td>${prob.toExponential(3)}</td><td>${absd.toFixed(3)}</td></tr>`;
+    }
+    html += `</tbody></table>`;
+    tableDiv.innerHTML = html;
+
+    // metrics: L1 error normalized, chi-sq? show L1 error and max diff
+    const l1 = totalAbsDiff;
+    const maxDiff = Math.max(...empiricalCounts.map((c,i)=>Math.abs(c - theoreticalCounts[i])));
+    const l1rel = l1 / trials;
+    interpret.innerHTML = `<strong>n</strong>=${n}, <strong>m</strong>=${m}, <strong>p</strong>=${p} → weekly secure prob <strong>q</strong>=${q.toExponential(6)}.<br>
+      Trials=${trials}. <strong>L1 error</strong> (sum |emp - expected|) = ${l1.toFixed(3)} (${(l1rel*100).toFixed(3)}% of trials). Max absolute difference in counts = ${maxDiff.toFixed(3)}.<br>
+      As <em>trials</em> → large, L1 error / trials → 0 (empirical frequencies converge to theoretical probabilities, law of large numbers).`;
+    errorDiv.innerHTML = `q = (1-p)^m = ${q.toPrecision(8)}.`;
+
+  });
+
+  // initial run
+  runBtn.click();
+
+})();
+</script>
+
+</body>
+</html>
