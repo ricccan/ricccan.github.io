@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Simulate Counting Process → Poisson Process Approximation</title>
+<style>
+  body{font-family:system-ui, -apple-system, "Segoe UI", Roboto, Arial; max-width:1100px; margin:28px auto; color:#111; background:#f7fbff; padding:18px;}
+  header{display:flex;gap:12px;align-items:center}
+  h1{margin:.2rem 0;color:#073b8c}
+  .card{background:#fff;border-radius:10px;padding:14px;margin:12px 0;box-shadow:0 8px 18px rgba(10,20,40,0.06)}
+  label{display:block;margin-top:8px;font-weight:600}
+  input[type=number], input[type=text], select{padding:8px;border-radius:8px;border:1px solid #ddd;width:120px}
+  button{background:#0b63d6;color:#fff;border:none;padding:10px 14px;border-radius:8px;cursor:pointer}
+  .controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  canvas{width:100%;height:300px;border-radius:8px;border:1px solid #eee;background:#fff}
+  table{width:100%;border-collapse:collapse;margin-top:8px}
+  th,td{padding:6px;border-bottom:1px solid #eee;text-align:left}
+  .muted{color:#556;font-size:14px}
+  .small{font-size:13px;color:#444}
+  .grid{display:grid;grid-template-columns:1fr 380px;gap:12px}
+  @media(max-width:900px){ .grid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,#0b63d6,#43a1ff);display:flex;align-items:center;justify-content:center;color:white;font-weight:900">λ</div>
+  <div>
+    <h1>Counting process → Poisson process approximation</h1>
+    <div class="muted">Discrete Bernoulli approximation (n subintervals) → Poisson(λT) as n→∞. Explore counts and interarrival times.</div>
+  </div>
+</header>
+
+<section class="card">
+  <h2>Model & approximation (quick)</h2>
+  <p class="small">
+    We simulate events on time interval <strong>[0, T]</strong>. Divide interval into <strong>n</strong> equal subintervals of length Δ = T/n.
+    In each subinterval we generate an event with probability <strong>λ Δ = λ/n</strong>, independently (Bernoulli).
+    As n→∞ this is the standard "law of rare events" approximation: the number of events in [0,T] converges in distribution to
+    <strong>Poisson(λT)</strong>. Event times within selected subintervals are placed uniformly inside that subinterval to approximate continuous occurrence.
+  </p>
+  <p class="small"><strong>Interpretation of λ</strong>: λ is the average rate (expected number of events per unit time). For interval length T, the expected count is E[N(T)] = λT, and Var[N(T)] = λT.</p>
+</section>
+
+<section class="card">
+  <h3>Simulation parameters</h3>
+  <div class="controls">
+    <div>
+      <label>λ (rate)</label>
+      <input id="lambda" type="number" min="0" step="0.1" value="5" />
+    </div>
+    <div>
+      <label>T (interval length)</label>
+      <input id="T" type="number" min="0.01" step="0.1" value="1" />
+    </div>
+    <div>
+      <label>n (subintervals)</label>
+      <input id="n" type="number" min="1" step="1" value="5000" />
+    </div>
+    <div>
+      <label>Trajectories (trials)</label>
+      <input id="trials" type="number" min="1" step="1" value="20000" />
+    </div>
+    <div style="min-width:160px">
+      <button id="run">Run simulation</button>
+    </div>
+    <div>
+      <label>Optional seed</label>
+      <input id="seed" type="text" placeholder="leave blank for random" />
+    </div>
+  </div>
+  <div class="small" style="margin-top:8px">Notes: bigger <strong>n</strong> yields better continuous-time approximation. More <strong>trials</strong> yields less sampling noise.</div>
+</section>
+
+<div class="grid">
+  <div class="card">
+    <h3>Histogram: empirical counts vs theoretical Poisson</h3>
+    <canvas id="hist" width="700" height="320"></canvas>
+    <div id="stats" class="small" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card">
+    <h3>Diagnostics & tables</h3>
+    <div id="tableArea" class="small"></div>
+    <div id="expArea" class="small" style="margin-top:8px"></div>
+  </div>
+</div>
+
+<section class="card">
+  <h3>Theory & properties (summary)</h3>
+  <ul>
+    <li><strong>Limit process:</strong> The discrete approximation converges to a <strong>Poisson process</strong> with rate λ as n→∞ (law of rare events).</li>
+    <li><strong>Counts:</strong> For any interval of length t, N(t) ~ Poisson(λ t). In particular E[N(t)] = Var[N(t)] = λ t.</li>
+    <li><strong>Independent increments:</strong> Counts in disjoint time intervals are independent.</li>
+    <li><strong>Stationary increments:</strong> Distribution depends only on interval length, not on position.</li>
+    <li><strong>Interarrival times:</strong> Waiting times between consecutive events are iid Exponential(λ); memoryless property.</li>
+    <li><strong>Markov property:</strong> Arrival counting process is Markovian (in its natural filtration) and the embedded arrival epochs follow renewal process with exponential increments.</li>
+    <li><strong>Meaning of λ:</strong> instantaneous average rate: λ = lim_{Δ→0} P(event in length Δ)/Δ.</li>
+  </ul>
+  <p class="small"><strong>Why the Bernoulli scheme approximates Poisson</strong>: For fixed T and λ, partition into n subintervals length Δ=T/n with per-subinterval success prob λΔ. The total count is Binomial(n, λΔ) with parameters (n, λT/n). As n→∞, Binomial(n, λT/n) → Poisson(λT) (law of rare events / Poisson limit theorem).</p>
+</section>
+
+<section class="card">
+  <h3>Interarrival time check</h3>
+  <p class="small">The simulation also computes empirical interarrival times and compares histogram/mean to Exponential(λ).</p>
+</section>
+
+<script>
+(function(){
+  // Simple seeded RNG (Mulberry32)
+  function makeRNG(seedStr){
+    if(!seedStr) return Math.random;
+    let h = 2166136261 >>> 0;
+    for(let i=0;i<seedStr.length;i++){ h ^= seedStr.charCodeAt(i); h = Math.imul(h,16777619); h>>>=0; }
+    let seed = h >>> 0;
+    return function(){
+      seed |= 0;
+      seed = seed + 0x6D2B79F5 | 0;
+      var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  // Helper Poisson PMF (works for λT reasonably sized)
+  function poissonPMF(k, lambdaT){
+    return Math.exp(-lambdaT) * Math.pow(lambdaT, k) / factorial(k);
+  }
+  // simple factorial (safe up to moderate k)
+  function factorial(k){
+    if(k<=1) return 1;
+    let p=1;
+    for(let i=2;i<=k;i++) p*=i;
+    return p;
+  }
+
+  // simulate one trajectory by n Bernoulli trials with prob λ/n in each subinterval
+  function simulateTrajectory(lambda, T, n, rng){
+    const delta = T / n;
+    const times = []; // event times
+    for(let i=0;i<n;i++){
+      if(rng() < (lambda * delta)){
+        // event, place uniformly inside subinterval [i*delta, (i+1)*delta)
+        const t = (i + rng()) * delta;
+        times.push(t);
+      }
+    }
+    return times;
+  }
+
+  // accumulate many trajectories and produce counts and interarrival times
+  function runSim(lambda, T, n, trials, rng){
+    const counts = []; // length trials
+    const interarrivals = []; // collect across all trajectories
+    for(let tr=0; tr<trials; tr++){
+      const times = simulateTrajectory(lambda, T, n, rng);
+      counts.push(times.length);
+      if(times.length > 0){
+        // sort (should already be ordered, but just in case)
+        times.sort((a,b)=>a-b);
+        // interarrival times: first arrival time from 0 is times[0], then differences
+        interarrivals.push(times[0]); // first waiting time
+        for(let j=1;j<times.length;j++){
+          interarrivals.push(times[j] - times[j-1]);
+        }
+      }
+      // if zero arrivals nothing added
+    }
+    return {counts, interarrivals};
+  }
+
+  // drawing histogram
+  function drawHistogram(canvas, bins, heights, colors, labels){
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0,0,w,h);
+    const margin = {l:40,t:20,r:20,b:40};
+    const plotW = w - margin.l - margin.r, plotH = h - margin.t - margin.b;
+    const maxH = Math.max(...heights,1);
+    const barW = plotW / bins.length * 0.85;
+    const gap = plotW / bins.length * 0.15;
+    ctx.strokeStyle = '#ddd'; ctx.beginPath(); ctx.moveTo(margin.l, margin.t); ctx.lineTo(margin.l, margin.t+plotH); ctx.lineTo(margin.l+plotW, margin.t+plotH); ctx.stroke();
+
+    for(let i=0;i<bins.length;i++){
+      const x = margin.l + i * (barW + gap) + gap/2;
+      const barH = heights[i] / maxH * plotH;
+      ctx.fillStyle = colors && colors[i] ? colors[i] : 'rgba(60,140,220,0.7)';
+      ctx.fillRect(x, margin.t + plotH - barH, barW, barH);
+      ctx.fillStyle = '#333'; ctx.font='11px system-ui'; ctx.textAlign='center';
+      ctx.fillText(labels ? labels[i] : bins[i], x + barW/2, margin.t + plotH + 14);
+    }
+  }
+
+  // UI wiring
+  const lambdaInput = document.getElementById('lambda');
+  const TInput = document.getElementById('T');
+  const nInput = document.getElementById('n');
+  const trialsInput = document.getElementById('trials');
+  const runBtn = document.getElementById('run');
+  const histCanvas = document.getElementById('hist');
+  const tableArea = document.getElementById('tableArea');
+  const statsDiv = document.getElementById('stats');
+  const expArea = document.getElementById('expArea');
+  const seedInput = document.getElementById('seed');
+
+  runBtn.addEventListener('click', ()=>{
+    const lambda = Math.max(0, Number(lambdaInput.value));
+    const T = Math.max(1e-9, Number(TInput.value));
+    const n = Math.max(1, Math.floor(Number(nInput.value)));
+    const trials = Math.max(1, Math.floor(Number(trialsInput.value)));
+    const rng = makeRNG(seedInput.value.trim());
+
+    // quick validation
+    if(lambda * T > 1e6){ alert('λT is large; results may be slow or overflow factorial computations.'); }
+
+    const res = runSim(lambda, T, n, trials, rng);
+    const counts = res.counts;
+    const inter = res.interarrivals;
+
+    // empirical summary
+    const meanCount = counts.reduce((a,b)=>a+b,0)/counts.length;
+    const varCount = counts.reduce((a,b)=>a+(b-meanCount)*(b-meanCount),0)/(counts.length-1 || 1);
+    const lambdaT = lambda * T;
+
+    // empirical frequencies for counts 0..kmax
+    const maxK = Math.max(...counts);
+    const kmax = Math.max( Math.min(maxK, Math.ceil(lambdaT + 6*Math.sqrt(lambdaT || 1))), 10 );
+    const freq = new Array(kmax+1).fill(0);
+    for(const c of counts) { if(c<=kmax) freq[c]++; else { /* ignore tail beyond kmax for plotting */ } }
+
+    // theoretical expected counts = Poisson(lambdaT) * trials
+    const theoCounts = [];
+    const probs = [];
+    for(let k=0;k<=kmax;k++){
+      const p = Math.exp(-lambdaT) * Math.pow(lambdaT,k) / factorial(k);
+      probs.push(p);
+      theoCounts.push(p * trials);
+    }
+
+    // build histogram: empirical heights are freq; theoretical overlay could be drawn as thin bars or text - draw empirical
+    const labels = [];
+    for(let k=0;k<=kmax;k++) labels.push(String(k));
+    drawHistogram(histCanvas, labels, freq, null, labels);
+
+    // show table: k, empirical count, expected, prob, abs diff
+    let html = '<table><thead><tr><th>k</th><th>empirical</th><th>expected (theoretical)</th><th>prob</th><th>abs diff</th></tr></thead><tbody>';
+    let totalAbsDiff = 0;
+    for(let k=0;k<=kmax;k++){
+      const emp = freq[k];
+      const expc = theoCounts[k];
+      const prob = probs[k];
+      const absd = Math.abs(emp - expc);
+      totalAbsDiff += absd;
+      html += `<tr><td>${k}</td><td>${emp.toLocaleString()}</td><td>${expc.toFixed(2)}</td><td>${prob.toExponential(3)}</td><td>${absd.toFixed(2)}</td></tr>`;
+    }
+    html += '</tbody></table>';
+    tableArea.innerHTML = html;
+
+    // interarrival diagnostics: mean ~ 1/λ, distribution approx exponential with mean 1/λ
+    const interMean = inter.length>0 ? inter.reduce((a,b)=>a+b,0)/inter.length : NaN;
+    const interVar = inter.length>1 ? inter.reduce((a,b)=>a+(b-interMean)*(b-interMean),0)/(inter.length-1) : NaN;
+
+    statsDiv.innerHTML = `<strong>Simulated trials:</strong> ${trials} &nbsp; <strong>n:</strong> ${n} &nbsp; <strong>λT:</strong> ${lambdaT.toPrecision(6)}<br>
+      <strong>Empirical count mean:</strong> ${meanCount.toPrecision(6)} &nbsp; <strong>theoretical E[N(T)]:</strong> ${lambdaT.toPrecision(6)}<br>
+      <strong>Empirical count variance:</strong> ${varCount.toPrecision(6)} &nbsp; <strong>theoretical Var[N(T)]:</strong> ${lambdaT.toPrecision(6)}<br>
+      <strong>Interarrival samples:</strong> ${inter.length} &nbsp; <strong>emp mean:</strong> ${Number.isFinite(interMean) ? interMean.toPrecision(6) : '—'} &nbsp; <strong>theoretical mean 1/λ:</strong> ${lambda>0 ? (1/lambda).toPrecision(6) : '∞' }`;
+
+    // show small exponential histogram for interarrival if enough samples
+    if(inter.length > 20){
+      // bin interarrival times up to e.g. 5*(1/λ)
+      const maxT = Math.max(...inter);
+      const binCount = 30;
+      const maxPlot = Math.min(maxT, Math.max(5*(1/(lambda||1)), maxT));
+      const bins = new Array(binCount).fill(0);
+      for(const v of inter){
+        if(v<=maxPlot){
+          const i = Math.min(binCount-1, Math.floor(v / maxPlot * binCount));
+          bins[i]++;
+        }
+      }
+      const labels2 = [];
+      for(let i=0;i<binCount;i++){
+        const left = (i/binCount*maxPlot).toFixed(2);
+        labels2.push(left);
+      }
+      // create temporary canvas for interarrival
+      let c2 = document.getElementById('interCanvas');
+      if(!c2){
+        c2 = document.createElement('canvas'); c2.id='interCanvas'; c2.width=350; c2.height=220; c2.style.display='block'; c2.style.marginTop='8px';
+        expArea.innerHTML = '<div style="font-weight:600;margin-bottom:6px">Interarrival histogram (truncated)</div>';
+        expArea.appendChild(c2);
+      }
+      drawHistogram(c2, labels2, bins, null, null);
+      expArea.innerHTML += `<div style="margin-top:8px">Interarrival empirical mean = ${interMean.toPrecision(6)}, empirical var = ${interVar.toPrecision(6)}; theoretical mean = ${lambda>0 ? (1/lambda).toPrecision(6) : '∞'}, var = ${lambda>0 ? (1/(lambda*lambda)).toPrecision(6) : '∞'}</div>`;
+    } else {
+      expArea.innerHTML = '<div class="small">Not enough interarrival samples to show histogram (need at least ~20 interarrival samples).</div>';
+    }
+
+    // L1 error per trial
+    const l1 = totalAbsDiff;
+    const l1rel = l1 / trials;
+    tableArea.innerHTML += `<div style="margin-top:8px;font-size:13px;color:#333"><strong>L1 error</strong> (sum |emp-expected|) = ${l1.toFixed(2)} (~${(l1rel*100).toFixed(3)}% of trials)</div>`;
+
+  });
+
+  // initial run
+  runBtn.click();
+
+})();
+</script>
+
+</body>
+</html>
