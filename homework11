@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Simulate Brownian Motion using Box–Muller (uniform → normal)</title>
+<style>
+  body{font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial; max-width:1100px; margin:20px auto; padding:18px; color:#111; background:#f6f9ff;}
+  header{display:flex;gap:12px;align-items:center}
+  h1{margin:.2rem 0;color:#0b63d6}
+  .card{background:#fff;border-radius:10px;padding:14px;margin:12px 0;box-shadow:0 8px 22px rgba(12,20,40,0.06)}
+  .controls{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+  label{display:block;font-weight:600;margin-bottom:6px}
+  input[type=number], input[type=text], select{padding:8px;border-radius:8px;border:1px solid #ddd;width:120px}
+  button{background:#0b63d6;color:#fff;border:none;padding:8px 12px;border-radius:8px;cursor:pointer}
+  canvas{width:100%;height:320px;border-radius:8px;border:1px solid #eee;background:#fff;display:block}
+  .grid2{display:grid;grid-template-columns:1fr 420px;gap:12px}
+  @media(max-width:920px){ .grid2{grid-template-columns:1fr} }
+  table{width:100%;border-collapse:collapse;margin-top:8px}
+  th,td{padding:8px;border-bottom:1px solid #eee;text-align:left}
+  .small{font-size:13px;color:#444}
+  .muted{color:#666;font-size:13px}
+  .legend{display:flex;gap:12px;align-items:center;margin-top:8px}
+  .dot{width:12px;height:12px;border-radius:6px;display:inline-block}
+</style>
+</head>
+<body>
+
+<header>
+  <div style="width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,#0b63d6,#43a1ff);display:flex;align-items:center;justify-content:center;color:white;font-weight:900">BM</div>
+  <div>
+    <h1>Brownian motion simulation — Box–Muller from uniform RNG</h1>
+    <div class="muted">Generate normal increments from uniform(0,1) using Box–Muller and build continuous-time Brownian (with optional drift).</div>
+  </div>
+</header>
+
+<section class="card">
+  <h2>Model summary</h2>
+  <p class="small">
+    Standard Brownian motion (Wiener process) W(t) has W(0)=0, stationary independent increments and W(t)−W(s) ~ N(0, t−s).
+    A general (drifted & scaled) model is: <code>X(t) = μ t + σ W(t)</code>.  
+    To simulate numerically on [0,T], divide [0,T] into <code>n</code> steps Δt = T/n and draw increments ΔW ~ N(0, Δt).
+    Use Box–Muller to obtain Normal(0,1) from uniform(0,1); scale by sqrt(Δt) and multiply by σ; add drift μΔt if needed.
+  </p>
+</section>
+
+<section class="card">
+  <h3>Controls</h3>
+  <div class="controls">
+    <div>
+      <label>T (total time)</label>
+      <input id="T" type="number" value="1" step="0.1" min="0.01" />
+    </div>
+    <div>
+      <label>n (time steps)</label>
+      <input id="n" type="number" value="1000" min="1" step="1" />
+    </div>
+    <div>
+      <label>σ (volatility)</label>
+      <input id="sigma" type="number" value="1" step="0.1" min="0" />
+    </div>
+    <div>
+      <label>μ (drift)</label>
+      <input id="mu" type="number" value="0" step="0.1" />
+    </div>
+    <div>
+      <label>trajectories to plot</label>
+      <input id="nTraj" type="number" value="5" min="1" max="50" />
+    </div>
+    <div>
+      <label>trials (for increments hist)</label>
+      <input id="trials" type="number" value="2000" min="1" />
+    </div>
+    <div>
+      <label>seed (optional)</label>
+      <input id="seed" type="text" placeholder="leave blank for random" />
+    </div>
+    <div style="min-width:160px">
+      <button id="runBtn">Run simulation</button>
+    </div>
+  </div>
+  <div class="small" style="margin-top:8px">Box–Muller uses pairs of independent uniform(0,1) draws to generate pairs of independent standard normals.</div>
+</section>
+
+<div class="grid2">
+  <div class="card">
+    <h3>Sample trajectories</h3>
+    <canvas id="trajCanvas" width="800" height="320"></canvas>
+    <div class="legend">
+      <div style="display:flex;gap:8px;align-items:center">
+        <div class="dot" style="background:#1f77b4"></div><div class="small">sample paths</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div class="dot" style="background:#ff7f0e"></div><div class="small">mean path (μ t)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Increments histogram & normal fit</h3>
+    <canvas id="histCanvas" width="380" height="320"></canvas>
+    <div id="stats" class="small" style="margin-top:8px"></div>
+  </div>
+</div>
+
+<section class="card">
+  <h3>Diagnostics table</h3>
+  <div id="tableDiv" class="small"></div>
+  <p class="small muted">Theory: for increments ΔW over Δt, E[ΔW]=0, Var[ΔW]=Δt. For X: E[ΔX]=μΔt, Var[ΔX]=σ²Δt.</p>
+</section>
+
+<script>
+(function(){
+  // Seeded PRNG (Mulberry32)
+  function makeRNG(seedStr){
+    if(!seedStr) return Math.random;
+    let h = 2166136261 >>> 0;
+    for(let i=0;i<seedStr.length;i++){ h ^= seedStr.charCodeAt(i); h = Math.imul(h,16777619); h >>>= 0; }
+    let seed = h >>> 0;
+    return function(){
+      seed = (seed + 0x6D2B79F5) | 0;
+      var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = (t + Math.imul(t ^ t >>> 7, 61 | t)) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  // Box-Muller: generates pair of independent standard normals from two uniforms (u1,u2) in (0,1]
+  // We'll implement an iterator-style generator that yields normals when requested, caching the second produced normal.
+  function BoxMuller(rng){
+    let spare = null;
+    return function(){
+      if(spare !== null){
+        const val = spare;
+        spare = null;
+        return val;
+      }
+      // get u1 in (0,1], avoid 0
+      let u1 = 0;
+      while(u1 === 0) u1 = rng();
+      const u2 = rng();
+      const mag = Math.sqrt(-2.0 * Math.log(u1));
+      const z0 = mag * Math.cos(2 * Math.PI * u2);
+      const z1 = mag * Math.sin(2 * Math.PI * u2);
+      spare = z1;
+      return z0;
+    };
+  }
+
+  // simulate one trajectory: X(t) = μ t + σ W(t) via increments
+  function simulateTrajectory(params, rng, bm){
+    const {T, n, sigma, mu} = params;
+    const dt = T / n;
+    const sqrtDt = Math.sqrt(dt);
+    const times = new Array(n+1);
+    const vals = new Array(n+1);
+    times[0] = 0; vals[0] = 0;
+    for(let i=1;i<=n;i++){
+      const z = bm(); // standard normal
+      const dW = z * sqrtDt; // increment of W
+      const dX = mu * dt + sigma * dW;
+      times[i] = i * dt;
+      vals[i] = vals[i-1] + dX;
+    }
+    return {times, vals};
+  }
+
+  // draw sample trajectories
+  function drawTrajectories(canvas, allTraj, params){
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0,0,w,h);
+    const margin = {l:48,t:12,r:12,b:40};
+    const plotW = w - margin.l - margin.r, plotH = h - margin.t - margin.b;
+
+    // determine global min/max
+    let minY = Infinity, maxY = -Infinity;
+    const nPoints = allTraj[0].times.length;
+    for(const tr of allTraj){
+      for(const v of tr.vals){ if(v < minY) minY = v; if(v>maxY) maxY = v; }
+    }
+    // include theoretical mean line μ t
+    const mu = params.mu;
+    const T = params.T;
+    const meanMax = mu * T;
+    minY = Math.min(minY, 0, mu*0);
+    maxY = Math.max(maxY, meanMax);
+
+    // margin if flat
+    if(maxY - minY < 1e-8){ maxY += 1; minY -= 1; }
+
+    // axes
+    ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(margin.l, margin.t); ctx.lineTo(margin.l, margin.t+plotH); ctx.lineTo(margin.l+plotW, margin.t+plotH); ctx.stroke();
+
+    // draw trajectories
+    const colors = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
+    for(let tindex=0;tindex<allTraj.length;tindex++){
+      const traj = allTraj[tindex];
+      ctx.beginPath();
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = colors[tindex % colors.length];
+      for(let i=0;i<traj.times.length;i++){
+        const x = margin.l + (traj.times[i]/params.T) * plotW;
+        const y = margin.t + plotH - ( (traj.vals[i] - minY) / (maxY - minY) ) * plotH;
+        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+    }
+
+    // draw mean line μ t
+    ctx.beginPath(); ctx.lineWidth = 1.5; ctx.strokeStyle = '#ff7f0e';
+    for(let i=0;i<=nPoints-1;i++){
+      const t = i * (params.T/(nPoints-1));
+      const x = margin.l + (t/params.T) * plotW;
+      const yval = params.mu * t;
+      const y = margin.t + plotH - ( (yval - minY) / (maxY - minY) ) * plotH;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+
+    // axis labels
+    ctx.fillStyle = '#333'; ctx.font='12px system-ui'; ctx.textAlign='center';
+    ctx.fillText('time', margin.l + plotW/2, h - 8);
+    ctx.save();
+    ctx.translate(12, margin.t + plotH/2); ctx.rotate(-Math.PI/2);
+    ctx.textAlign='center'; ctx.fillText('X(t)', 0, 0);
+    ctx.restore();
+  }
+
+  // draw histogram of increments with theoretical normal overlay
+  function drawIncrementsHist(canvas, increments, dt, sigma){
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0,0,w,h);
+    const margin = {l:36,t:12,r:12,b:36};
+    const plotW = w - margin.l - margin.r, plotH = h - margin.t - margin.b;
+
+    // compute histogram bins
+    const nbins = 36;
+    let minX = Math.min(...increments), maxX = Math.max(...increments);
+    // center around zero if symmetric
+    const pad = Math.max(Math.abs(minX), Math.abs(maxX));
+    minX = -pad; maxX = pad;
+    if(maxX === minX){ minX -= 1; maxX += 1; }
+    const binW = (maxX - minX)/nbins;
+    const bins = new Array(nbins).fill(0);
+    for(const v of increments){
+      let idx = Math.floor((v - minX) / (maxX - minX) * nbins);
+      if(idx < 0) idx = 0; if(idx >= nbins) idx = nbins-1;
+      bins[idx]++;
+    }
+    const maxCount = Math.max(...bins, 1);
+
+    // draw bars
+    for(let i=0;i<nbins;i++){
+      const x = margin.l + i*(plotW/nbins) + 1;
+      const barH = bins[i] / maxCount * plotH;
+      ctx.fillStyle = 'rgba(60,140,220,0.8)';
+      ctx.fillRect(x, margin.t + plotH - barH, (plotW/nbins)-2, barH);
+    }
+
+    // overlay theoretical density: Normal(mean=0, var = sigma^2 * dt)
+    const mean = 0;
+    const varTheo = sigma*sigma*dt;
+    const sdTheo = Math.sqrt(varTheo);
+    // scale pdf to histogram: pdf(x) * total_count * binWidth
+    ctx.beginPath();
+    const total = increments.length;
+    ctx.strokeStyle = '#ff7f0e'; ctx.lineWidth = 2;
+    for(let i=0;i<=100;i++){
+      const u = i/100;
+      const xVal = minX + u*(maxX - minX);
+      const pdf = (1/ (sdTheo * Math.sqrt(2*Math.PI))) * Math.exp(-0.5 * ((xVal-mean)/sdTheo)**2);
+      const height = pdf * total * binW; // expected bin count
+      const x = margin.l + u * plotW;
+      const y = margin.t + plotH - (height / maxCount * plotH);
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+
+    // labels
+    ctx.fillStyle='#333'; ctx.font='12px system-ui'; ctx.textAlign='center';
+    ctx.fillText('increments (ΔX)', margin.l + plotW/2, h - 8);
+  }
+
+  // compute sample stats
+  function sampleMean(arr){ return arr.reduce((a,b)=>a+b,0)/arr.length; }
+  function sampleVar(arr, mean){ return arr.reduce((a,b)=>(a+(b-mean)*(b-mean)),0)/(arr.length-1 || 1); }
+
+  // UI wiring
+  const runBtn = document.getElementById('runBtn');
+  const Tinp = document.getElementById('T');
+  const nInp = document.getElementById('n');
+  const sigmaInp = document.getElementById('sigma');
+  const muInp = document.getElementById('mu');
+  const nTrajInp = document.getElementById('nTraj');
+  const trialsInp = document.getElementById('trials');
+  const seedInp = document.getElementById('seed');
+  const trajCanvas = document.getElementById('trajCanvas');
+  const histCanvas = document.getElementById('histCanvas');
+  const tableDiv = document.getElementById('tableDiv');
+  const statsDiv = document.getElementById('stats');
+
+  runBtn.addEventListener('click', ()=>{
+    const T = Math.max(1e-9, Number(Tinp.value));
+    const n = Math.max(1, Math.floor(Number(nInp.value)));
+    const sigma = Math.max(0, Number(sigmaInp.value));
+    const mu = Number(muInp.value);
+    const nTraj = Math.max(1, Math.min(50, Math.floor(Number(nTrajInp.value))));
+    const trials = Math.max(1, Math.floor(Number(trialsInp.value)));
+    const seed = seedInp.value.trim();
+
+    const rng = makeRNG(seed);
+    const bm = BoxMuller(rng);
+
+    // simulate trajectories for plotting
+    const params = {T, n, sigma, mu};
+    const allTraj = [];
+    for(let i=0;i<nTraj;i++){
+      allTraj.push(simulateTrajectory(params, rng, bm));
+    }
+    drawTrajectories(trajCanvas, allTraj, params);
+
+    // simulate many increments across trials for histogram & diagnostics
+    const dt = T / n;
+    const increments = []; // ΔX samples across all trials: ΔX = μ dt + σ * Z * sqrt(dt)
+    const countsPerTrial = []; // optional: to compute final value distribution
+    // reuse bm but careful: BoxMuller caches spare; fine to continue
+    for(let tr=0; tr<trials; tr++){
+      // simulate one path but only collect increments (we can sample one increment per trial, or sample many per trial)
+      // here we collect one increment per trial at random time-step to get iid increments of size dt
+      // BUT more typical is to collect many increments per trajectory; we will collect one increment per trial at step index floor(n/2)
+      // Simpler: draw Z ~ N(0,1) using BoxMuller agnostic of time index
+      const z = bm();
+      const dW = z * Math.sqrt(dt);
+      const dX = mu * dt + sigma * dW;
+      increments.push(dX);
+    }
+    // compute empirical mean/var of increments
+    const meanInc = sampleMean(increments);
+    const varInc = sampleVar(increments, meanInc);
+
+    drawIncrementsHist(histCanvas, increments, dt, sigma);
+
+    // diagnostics: theoretical vs empirical for increments
+    const theoMeanInc = mu * dt;
+    const theoVarInc = sigma*sigma * dt;
+
+    // compute final X(T) mean/var by CLT idea: sum of n independent increments -> empirical approx
+    // we can simulate final values for a smaller number of sample trajectories
+    const finalVals = [];
+    for(let tr=0; tr<Math.min(2000, trials); tr++){
+      // simulate final value directly by summing n increments (use BoxMuller)
+      let x = 0;
+      for(let i=0;i<n;i++){
+        const z = bm();
+        x += mu * dt + sigma * z * Math.sqrt(dt);
+      }
+      finalVals.push(x);
+    }
+    const meanFinal = sampleMean(finalVals);
+    const varFinal = sampleVar(finalVals, meanFinal);
+    const theoMeanFinal = mu * T;
+    const theoVarFinal = sigma*sigma * T;
+
+    // table output
+    tableDiv.innerHTML = `<table>
+      <thead><tr><th>Quantity</th><th>Empirical</th><th>Theoretical</th></tr></thead>
+      <tbody>
+        <tr><td>increment mean (ΔX)</td><td>${meanInc.toExponential(3)}</td><td>${theoMeanInc.toExponential(3)}</td></tr>
+        <tr><td>increment var (ΔX)</td><td>${varInc.toExponential(3)}</td><td>${theoVarInc.toExponential(3)}</td></tr>
+        <tr><td>X(T) mean</td><td>${meanFinal.toExponential(3)}</td><td>${theoMeanFinal.toExponential(3)}</td></tr>
+        <tr><td>X(T) var</td><td>${varFinal.toExponential(3)}</td><td>${theoVarFinal.toExponential(3)}</td></tr>
+      </tbody></table>`;
+
+    statsDiv.innerHTML = `dt = ${dt.toPrecision(6)} · collected increments = ${increments.length} · simulated finals = ${finalVals.length}`;
+  });
+
+  // initial run
+  runBtn.click();
+
+})();
+</script>
+
+</body>
+</html>
